@@ -89,12 +89,21 @@ def test_invalid_probability_nan(policy, base_fusion):
     base_fusion["fusion_summary"]["primary_risk_probability"] = float("nan")
     res = make_decision(base_fusion, policy)
     assert res["decision"] == "REVIEW"
+    assert "Invalid or unavailable probability" in res["decision_reason"]
 
 
-def test_invalid_probability_bounds(policy, base_fusion):
+def test_invalid_probability_upper_bound(policy, base_fusion):
     base_fusion["fusion_summary"]["primary_risk_probability"] = 1.05
     res = make_decision(base_fusion, policy)
     assert res["decision"] == "REVIEW"
+    assert "Invalid or unavailable probability" in res["decision_reason"]
+
+
+def test_invalid_probability_lower_bound(policy, base_fusion):
+    base_fusion["fusion_summary"]["primary_risk_probability"] = -0.05
+    res = make_decision(base_fusion, policy)
+    assert res["decision"] == "REVIEW"
+    assert "Invalid or unavailable probability" in res["decision_reason"]
 
 
 def test_low_prob_with_conflict(policy, base_fusion):

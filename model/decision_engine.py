@@ -24,21 +24,34 @@ class DecisionPolicy:
         self.block_threshold = block_threshold
 
 
+# Explicit mapping of which rules constitute independent corroborating evidence for a BLOCK.
+# HIGH severity does NOT automatically imply blocking-eligible.
+# For example, `repeated_fraud` is highly correlated with the model's history features.
+RULE_BLOCKING_ELIGIBILITY = {
+    "velocity_new_device": True,
+    "deviation_new_location": True,
+    "risky_merchant_new_customer": True,
+    "missing_critical_context": False,
+    "extreme_amount_single_signal": False,
+    "repeated_fraud": False  # Not independent (correlated with model feature previous_fraud_count)
+}
+
+
 def _has_independent_blocking_evidence(rule_evidence: dict[str, Any]) -> bool:
     """
     Guardrail: BLOCK requires independent, non-correlated severe evidence.
     
-    The `repeated_fraud` rule heavily correlates with model history features
-    (e.g., `previous_fraud_count`). Triggering it is not 'independent' evidence.
-    To safely block, there must be a MEDIUM or HIGH severity rule triggered
-    that is NOT `repeated_fraud`.
+    Checks if there is a MEDIUM or HIGH severity rule triggered that is explicitly
+    flagged as blocking-eligible in the RULE_BLOCKING_ELIGIBILITY mapping.
     """
     triggered = rule_evidence.get("triggered_rules", [])
     for rule in triggered:
         sev = rule.get("severity")
         r_id = rule.get("rule_id")
         
-        if sev in ["MEDIUM", "HIGH"] and r_id != "repeated_fraud":
+        is_eligible = RULE_BLOCKING_ELIGIBILITY.get(r_id, False)
+        
+        if sev in ["MEDIUM", "HIGH"] and is_eligible:
             return True
             
     return False

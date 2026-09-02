@@ -1,0 +1,18 @@
+{
+  "module": "AI Explanation Engine",
+  "architecture": "ExplanationEngine -> ExplanationProvider (ABC)",
+  "provider_used": "deterministic_fallback",
+  "latency_sec_per_transaction": 1.5711784362792968e-06,
+  "example_explanation": {
+    "transaction_id": "txn_0",
+    "decision": "ALLOW",
+    "explanation": "Decision: ALLOW. The calibrated model probability is 0.0654. Confidence is MEDIUM. Policy reasoning: Validated model risk (0.0654) is safely below the ALLOW threshold (0.1000). No contextual rules were triggered.",
+    "key_factors": [],
+    "evidence_references": [],
+    "limitations": [
+      "Generated deterministically without natural language reasoning."
+    ],
+    "provider": "deterministic_fallback",
+    "grounded": true
+  }
+}
