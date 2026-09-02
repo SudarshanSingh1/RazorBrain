@@ -2,3 +2,4 @@ backend
 data
 evaluation
 model
+model_artifacts
