@@ -1,0 +1,25 @@
+{
+  "module": "Database + Audit Trail",
+  "database_technology": "SQLite (Relational, PostgreSQL portable)",
+  "migration_technology": "Custom deterministic sequential .sql runner",
+  "performance": {
+    "batch_insert_500_records_sec": 0.027863025665283203,
+    "per_record_insert_ms": 0.055726051330566406,
+    "batch_retrieve_500_records_sec": 0.014292001724243164,
+    "per_record_retrieve_ms": 0.028584003448486328,
+    "paginated_query_ms": 0.23698806762695312
+  },
+  "schema_metrics": {
+    "tables": [
+      "migrations",
+      "transactions",
+      "risk_assessments",
+      "decisions",
+      "rule_evidence",
+      "model_evidence",
+      "explanations"
+    ],
+    "foreign_keys_enforced": true,
+    "append_only_idempotency_enforced": true
+  }
+}
