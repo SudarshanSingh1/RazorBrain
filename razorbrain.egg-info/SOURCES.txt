@@ -11,6 +11,7 @@ model/__init__.py
 model/baseline.py
 model/dataset_split.py
 model/feature_engineering.py
+model/fraud_model.py
 razorbrain.egg-info/PKG-INFO
 razorbrain.egg-info/SOURCES.txt
 razorbrain.egg-info/dependency_links.txt
@@ -20,5 +21,6 @@ tests/test_baseline.py
 tests/test_dataset_quality.py
 tests/test_dataset_split.py
 tests/test_feature_engineering.py
+tests/test_fraud_model.py
 tests/test_generator.py
 tests/test_schema.py
