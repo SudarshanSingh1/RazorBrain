@@ -1,0 +1,52 @@
+{
+  "module": "Decision Engine",
+  "business_cost_assumptions": {
+    "FN_COST": 500.0,
+    "FP_COST": 100.0,
+    "REVIEW_COST": 50.0
+  },
+  "selected_thresholds": {
+    "allow_threshold": 0.1,
+    "block_threshold": 0.4
+  },
+  "validation_performance": {
+    "samples_evaluated": 15000,
+    "ALLOW_count": 14339,
+    "ALLOW_rate": 0.9559333333333333,
+    "REVIEW_count": 661,
+    "REVIEW_rate": 0.044066666666666664,
+    "BLOCK_count": 0,
+    "BLOCK_rate": 0.0,
+    "false_negatives": 1050,
+    "false_positives": 0,
+    "true_positives": 0,
+    "block_precision": 0,
+    "block_recall": 0.0,
+    "estimated_business_cost": 558050.0
+  },
+  "performance": {
+    "total_latency_sec": 0.017190933227539062,
+    "per_transaction_latency_ms": 0.0011460622151692708
+  },
+  "example_decision": {
+    "transaction_id": "4d7cb3c9-ebc4-d695-57d2-8396e35160d2",
+    "decision": "ALLOW",
+    "decision_reason": "Validated model risk (0.0591) is safely below the ALLOW threshold (0.1000). Conflict overridden due to lack of independent corroborating evidence.",
+    "primary_risk_probability": 0.05908764367816091,
+    "confidence_in_probability": "HIGH",
+    "blocking_guardrail_status": "NOT_EVALUATED",
+    "policy_metadata": {
+      "allow_threshold": 0.1,
+      "block_threshold": 0.4
+    },
+    "evidence_summary": {
+      "primary_risk_probability": 0.05908764367816091,
+      "contextual_severity": "HIGH",
+      "confidence_in_probability": "HIGH"
+    },
+    "conflicting_evidence": {
+      "has_conflict": true,
+      "reason": "Model probability is low, but highly severe deterministic evidence triggered."
+    }
+  }
+}
