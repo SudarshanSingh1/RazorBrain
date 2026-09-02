@@ -33,54 +33,61 @@ class ExplanationProvider(ABC):
 class DeterministicFallbackProvider(ExplanationProvider):
     """
     Constructs a genuine deterministic explanation directly from the evidence.
-    Safe against hallucination, prompt injection, and provider outages.
+    Safe against hallucination and provider outages. Actual prompt injection
+    resistance for future LLMs must be validated when integrated.
     """
     def explain(self, decision_result: Dict[str, Any]) -> Dict[str, Any]:
         decision = decision_result.get("decision", "UNKNOWN")
         prob = decision_result.get("primary_risk_probability")
-        conf = decision_result.get("confidence_in_probability", "UNKNOWN")
+        conf = decision_result.get("confidence_in_probability")
         tid = decision_result.get("transaction_id", "UNKNOWN")
         
-        prob_str = f"{prob:.4f}" if isinstance(prob, (float, int)) else "unavailable"
+        explanation_parts = [f"Decision: {decision}."]
         
-        # Base explanation
-        explanation_parts = [
-            f"Decision: {decision}.",
-            f"The calibrated model probability is {prob_str}.",
-            f"Confidence is {conf}."
-        ]
-        
-        # Policy reason
+        # Missing probability handling
+        if prob is None or not isinstance(prob, (float, int)):
+            explanation_parts.append("The calibrated model probability is unavailable.")
+        else:
+            explanation_parts.append(f"The calibrated model probability is {prob:.4f}.")
+            
+        if conf:
+            explanation_parts.append(f"Confidence is {conf}.")
+        else:
+            explanation_parts.append("Confidence is unavailable.")
+            
         reason = decision_result.get("decision_reason")
         if reason:
             explanation_parts.append(f"Policy reasoning: {reason}")
             
-        # Rules
-        summary = decision_result.get("evidence_summary", {})
-        rule_ev = summary.get("rule_evidence", {})
-        triggered = rule_ev.get("triggered_rules", [])
-        
+        summary = decision_result.get("evidence_summary")
         evidence_references = []
         key_factors = []
         
-        if triggered:
-            rules_str = ", ".join([f"{r.get('rule_id')} ({r.get('severity')})" for r in triggered])
-            explanation_parts.append(f"Triggered contextual rules: {rules_str}.")
-            for r in triggered:
-                evidence_references.append(r.get('rule_id'))
-                key_factors.append(f"Rule: {r.get('rule_id')} triggered.")
+        if summary is None or "rule_evidence" not in summary:
+            explanation_parts.append("Rule evidence is unavailable.")
         else:
-            explanation_parts.append("No contextual rules were triggered.")
+            rule_ev = summary.get("rule_evidence", {})
+            triggered = rule_ev.get("triggered_rules")
             
-        # SHAP
-        model_ev = decision_result.get("evidence_summary", {}).get("model_evidence", {}) if "evidence_summary" in decision_result else decision_result.get("model_evidence", {})
-        pos_shap = model_ev.get("top_positive_contributors", [])
-        
-        if pos_shap:
-            shap_str = ", ".join([f"{s.get('feature')}" for s in pos_shap[:2]])
-            explanation_parts.append(f"Top factors contributing positively to model risk: {shap_str}.")
-            for s in pos_shap[:2]:
-                key_factors.append(f"Feature '{s.get('feature')}' contributed positively to model output.")
+            if triggered is None:
+                explanation_parts.append("Rule evidence is unavailable.")
+            elif len(triggered) == 0:
+                explanation_parts.append("No contextual rules were triggered.")
+            else:
+                rules_str = ", ".join([f"{r.get('rule_id')} ({r.get('severity')})" for r in triggered])
+                explanation_parts.append(f"Triggered contextual rules: {rules_str}.")
+                for r in triggered:
+                    evidence_references.append(r.get('rule_id'))
+                    key_factors.append(f"Rule: {r.get('rule_id')} triggered.")
+            
+        model_ev = summary.get("model_evidence", {}) if summary else decision_result.get("model_evidence", {})
+        if model_ev:
+            pos_shap = model_ev.get("top_positive_contributors", [])
+            if pos_shap:
+                shap_str = ", ".join([f"{s.get('feature')}" for s in pos_shap[:2]])
+                explanation_parts.append(f"Top factors contributing positively to model risk: {shap_str}.")
+                for s in pos_shap[:2]:
+                    key_factors.append(f"Feature '{s.get('feature')}' contributed positively to model output.")
         
         explanation = " ".join(explanation_parts)
         
@@ -90,7 +97,7 @@ class DeterministicFallbackProvider(ExplanationProvider):
             "explanation": explanation,
             "key_factors": key_factors,
             "evidence_references": evidence_references,
-            "limitations": ["Generated deterministically without natural language reasoning."],
+            "limitations": ["Generated deterministically without natural language reasoning. Not an LLM."],
             "provider": "deterministic_fallback",
             "grounded": True
         }
@@ -106,14 +113,8 @@ class LocalLLMProvider(ExplanationProvider):
         self.model_id = model_id
         
     def explain(self, decision_result: Dict[str, Any]) -> Dict[str, Any]:
-        # RazorBrain is designed to be fully operational without requiring massive
-        # external model downloads or proprietary APIs during standard execution.
-        # If the endpoint is not explicitly provided, we fail fast to trigger the fallback.
         if not self.endpoint_url:
             raise ProviderUnavailableError("Local LLM endpoint is not configured or unavailable.")
-            
-        # In a real environment, we would make a safe, timeout-bounded HTTP request here.
-        # For this phase, if an endpoint is provided, we simulate the interface.
         raise ProviderUnavailableError("Local LLM inference not implemented in this demo phase.")
 
 
@@ -122,36 +123,52 @@ class ExplanationEngine:
     Orchestrates explanation generation. Enforces read-only isolation,
     validates output grounding, and handles provider failures natively.
     """
-    def __init__(self, primary_provider: ExplanationProvider = None):
+    def __init__(self, primary_provider: ExplanationProvider = None, max_output_length: int = 5000):
         self.primary_provider = primary_provider
+        self.max_output_length = max_output_length
         self.fallback_provider = DeterministicFallbackProvider()
         
     def _validate_output(self, decision_result: Dict[str, Any], explanation: Dict[str, Any]) -> None:
         """
-        Ensures the explanation provider has not hallucinated or altered the authoritative decision.
+        Ensures the explanation provider has not hallucinated, mutated authoritative data,
+        or injected unsupported claims.
         """
-        # 1. Decision Preservation
+        # 1. Output length protection
+        if len(str(explanation)) > self.max_output_length:
+            raise ExplanationValidationError("Provider output exceeded maximum allowed length.")
+
+        # 2. Schema check
+        required_keys = {"transaction_id", "decision", "explanation", "provider", "grounded"}
+        if not required_keys.issubset(explanation.keys()):
+            raise ExplanationValidationError("Provider output missing required structured fields.")
+
+        # 3. Decision Preservation
         if explanation.get("decision") != decision_result.get("decision"):
             raise ExplanationValidationError("Provider altered the authoritative decision.")
             
-        # 2. Probability/Risk Invention check
-        # We search the explanation text for hallucinated probabilities like "99%" if actual is low.
-        # A lightweight heuristic: if text says "probability is 0.9" but actual is 0.1.
-        # For deterministic checks, we ensure it doesn't contain ungrounded rule IDs.
-        
-        # 3. Rule Grounding
+        # 4. Numeric & Confidence Protection
+        if "primary_risk_probability" in explanation:
+            if explanation["primary_risk_probability"] != decision_result.get("primary_risk_probability"):
+                raise ExplanationValidationError("Provider altered authoritative primary_risk_probability.")
+                
+        if "confidence_in_probability" in explanation:
+            if explanation["confidence_in_probability"] != decision_result.get("confidence_in_probability"):
+                raise ExplanationValidationError("Provider altered authoritative confidence_in_probability.")
+                
+        # Reject completely fabricated numeric scores 
+        forbidden_keys = ["risk_score", "fraud_probability_percentage", "fraud_score", "anomaly_score"]
+        for fk in forbidden_keys:
+            if fk in explanation:
+                raise ExplanationValidationError(f"Provider introduced unsupported risk score field: {fk}")
+
+        # 5. Rule Grounding
         summary = decision_result.get("evidence_summary", {})
-        rule_ev = summary.get("rule_evidence", {})
-        triggered_rules = {r.get("rule_id") for r in rule_ev.get("triggered_rules", [])}
+        rule_ev = summary.get("rule_evidence", {}) if summary else {}
+        triggered_rules = {r.get("rule_id") for r in rule_ev.get("triggered_rules", [])} if rule_ev else set()
         
         for ref in explanation.get("evidence_references", []):
             if ref not in triggered_rules and ref not in ["model_probability", "missing_data"]:
                 raise ExplanationValidationError(f"Provider hallucinated unsupported evidence reference: {ref}")
-                
-        # 4. Mandatory fields
-        required_keys = {"transaction_id", "decision", "explanation", "provider", "grounded"}
-        if not required_keys.issubset(explanation.keys()):
-            raise ExplanationValidationError("Provider output missing required structured fields.")
 
     def explain(self, decision_result: Dict[str, Any]) -> Dict[str, Any]:
         """
