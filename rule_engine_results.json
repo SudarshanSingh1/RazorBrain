@@ -1,0 +1,50 @@
+{
+  "engine": "RazorBrain Evidence Generator",
+  "threshold_source": "TRAIN (Statistical Percentiles)",
+  "thresholds_used": {
+    "amount_p99": 885.3166999999964,
+    "amount_deviation_p99": 799.9757389830482,
+    "txns_last_5min_p99": 0.0,
+    "txns_last_1h_p99": 1.0,
+    "txns_last_24h_p99": 4.0,
+    "merchant_fraud_rate_p95": 0.10093933739133013
+  },
+  "rules_configured": 6,
+  "validation_samples_evaluated": 15000,
+  "evaluation_latency_sec": 0.3756868839263916,
+  "rule_distribution": {
+    "repeated_fraud": 14896,
+    "missing_critical_context": 755,
+    "extreme_amount_single_signal": 163,
+    "deviation_new_location": 13,
+    "velocity_new_device": 14
+  },
+  "edge_cases": {
+    "normal": [],
+    "extreme_amount_only": [
+      "extreme_amount_single_signal"
+    ],
+    "velocity_and_new_device": [
+      "velocity_new_device"
+    ],
+    "missing_ip": [
+      "missing_critical_context"
+    ]
+  },
+  "example_evidence": [
+    {
+      "rule_id": "velocity_new_device",
+      "rule_name": "High 24h Velocity with New Device",
+      "severity": "HIGH",
+      "status": "TRIGGERED",
+      "evidence": "Transaction frequency exceeds 99th percentile while using an unseen device.",
+      "observed_values": {
+        "txns_last_24h": 500.0,
+        "new_device_flag": 1.0
+      },
+      "thresholds": {
+        "txns_last_24h_p99": 4.0
+      }
+    }
+  ]
+}
