@@ -39,3 +39,4 @@ datasets/
 logs/
 experiments/
 tb_logs/
+data/generated/
