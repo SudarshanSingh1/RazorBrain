@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - RAZORBRAIN_API_KEY=${RAZORBRAIN_API_KEY:-dev-api-key-123}
+      - RAZORBRAIN_DB_PATH=/app/data_store/razorbrain_production.db
+      - RAZORBRAIN_CORS_ORIGINS=*
+    volumes:
+      - razorbrain_db:/app/data_store
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_KEY=${RAZORBRAIN_API_KEY:-dev-api-key-123}
+        - VITE_API_URL=http://localhost:8000
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  razorbrain_db:

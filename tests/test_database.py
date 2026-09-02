@@ -173,3 +173,56 @@ def test_repeated_fraud_preservation(test_db, sample_data):
     assert len(rules) == 1
     assert rules[0]["rule_id"] == "repeated_fraud"
     assert rules[0]["severity"] == "HIGH" # Stored categorically
+
+def test_repeated_migrations(test_db):
+    # Running migrations again should be a no-op and not raise errors
+    run_migrations(db_path=test_db)
+    
+    with get_session(test_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM migrations")
+        count = cursor.fetchone()[0]
+        assert count > 0
+
+def test_paginated_retrieval(test_db, sample_data):
+    txn_data, dec_result, exp_result = sample_data
+    
+    with get_session(test_db) as conn:
+        for i in range(5):
+            txn = txn_data.copy()
+            txn["transaction_id"] = f"txn_page_{i}"
+            dec = dec_result.copy()
+            dec["assessment_id"] = f"assess_page_{i}"
+            dec["transaction_id"] = f"txn_page_{i}"
+            save_assessment(conn, txn, dec, exp_result)
+            
+    with get_session(test_db) as conn:
+        # Fetch page 1 (size 2)
+        from database.repository import get_assessments_paginated
+        page1 = get_assessments_paginated(conn, limit=2, offset=0)
+        assert len(page1) == 2
+        
+        # Fetch page 2 (size 2)
+        page2 = get_assessments_paginated(conn, limit=2, offset=2)
+        assert len(page2) == 2
+        assert page1[0]["assessment_id"] != page2[0]["assessment_id"]
+        
+        # Fetch boundary page (size 2, but only 1 left)
+        page3 = get_assessments_paginated(conn, limit=2, offset=4)
+        assert len(page3) == 1
+        
+        # Empty page
+        page4 = get_assessments_paginated(conn, limit=2, offset=10)
+        assert len(page4) == 0
+
+def test_retrieval_does_not_recompute(test_db, sample_data):
+    txn_data, dec_result, exp_result = sample_data
+    with get_session(test_db) as conn:
+        aid = save_assessment(conn, txn_data, dec_result, exp_result)
+        retrieved = get_assessment(conn, aid)
+        
+    # The retrieved object is a plain dictionary containing strictly the historical strings/floats.
+    # No ML objects (like xgb.Booster or shap.Explainer) are attached or executed.
+    assert isinstance(retrieved["primary_risk_probability"], float)
+    assert isinstance(retrieved["decision_record"]["decision"], str)
+    assert retrieved["decision_record"]["decision"] == dec_result["decision"]

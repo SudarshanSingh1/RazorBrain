@@ -41,12 +41,22 @@ def fuse_risk_batch(
     4. Aggregates into a unified, non-double-counted assessment.
     """
     
-    # 1. Model Assessment
-    raw_probs = predict_proba(model_art, X)
-    calib_probs = predict_calibrated_proba(calib_art, X)
+    # 1 & 2. Model Assessment and Evidence (gracefully skip rows with NaNs)
+    raw_probs = np.full(len(X), np.nan)
+    calib_probs = np.full(len(X), np.nan)
+    shap_exps = [[] for _ in range(len(X))]
     
-    # 2. Model Evidence (SHAP)
-    shap_exps = explain_batch(explainer_art, X, max_batch_size=len(X))
+    has_nans = X.isna().any(axis=1).astype(bool)
+    valid_idx = ~has_nans
+    
+    if valid_idx.any():
+        X_valid = X[valid_idx]
+        raw_probs[valid_idx] = predict_proba(model_art, X_valid)
+        calib_probs[valid_idx] = predict_calibrated_proba(calib_art, X_valid)
+        valid_shap = explain_batch(explainer_art, X_valid, max_batch_size=len(X_valid))
+        for i, idx in enumerate(np.where(valid_idx)[0]):
+            shap_exps[idx] = valid_shap[i]
+
     
     # 3. Rule Evidence
     rule_evs = evaluate_rules(X, rule_thresholds)
@@ -62,9 +72,9 @@ def fuse_risk_batch(
         tid = transaction_ids.iloc[i] if transaction_ids is not None else f"txn_{i}"
         
         # Evaluate Completeness
-        ip_miss = row.get("ip_is_missing", 0) == 1
-        loc_miss = row.get("location_is_missing", 0) == 1
-        new_cust = row.get("is_new_customer", 0) == 1
+        ip_miss = 1 if row.get("ip_is_missing", 0) == 1 else 0
+        loc_miss = 1 if row.get("location_is_missing", 0) == 1 else 0
+        new_cust = 1 if pd.isna(row.get("is_new_customer")) or row.get("is_new_customer") == 1 else 0
         
         missing_count = sum([ip_miss, loc_miss, new_cust])
         if missing_count == 0:
@@ -81,17 +91,17 @@ def fuse_risk_batch(
             max_sev = max(triggered, key=lambda r: sev_rank[r["severity"]])["severity"]
             
         # Detect Evidence Conflicts
-        calib_p = float(calib_probs[i])
+        calib_p = float(calib_probs[i]) if not np.isnan(calib_probs[i]) else None
         conflict = False
         conflict_reason = None
         
         # Conflict 1: Model says very low risk, Rules say HIGH risk
-        if calib_p < 0.1 and max_sev == "HIGH":
+        if calib_p is not None and calib_p < 0.1 and max_sev == "HIGH":
             conflict = True
             conflict_reason = "Model probability is low, but highly severe deterministic evidence triggered."
             
         # Conflict 2: Model says very high risk, but NO rules triggered
-        elif calib_p > 0.8 and max_sev in ["NONE", "INFO"]:
+        elif calib_p is not None and calib_p > 0.8 and max_sev in ["NONE", "INFO"]:
             conflict = True
             conflict_reason = "Model probability is extremely high, but no structured rule evidence corroborates."
             
@@ -99,16 +109,16 @@ def fuse_risk_batch(
         assessment = {
             "transaction_id": str(tid),
             "model_assessment": {
-                "raw_probability": float(raw_probs[i]),
+                "raw_probability": float(raw_probs[i]) if not np.isnan(raw_probs[i]) else None,
                 "calibrated_probability": calib_p,
-                "calibration_status": calib_art["method"].upper()
+                "calibration_status": calib_art["method"].upper() if calib_p is not None else "UNAVAILABLE"
             },
-            "model_evidence": shap_exps[i],
+            "model_evidence": shap_exps[i] or [],
             "rule_evidence": {
                 "triggered_rules": triggered,
                 "highest_severity": max_sev
             },
-            "evidence_completeness": completeness,
+            "evidence_completeness": completeness if calib_p is not None else "UNAVAILABLE",
             "evidence_conflict": {
                 "has_conflict": conflict,
                 "reason": conflict_reason
@@ -118,7 +128,7 @@ def fuse_risk_batch(
                 "primary_risk_probability": calib_p,
                 # Context is passed alongside it, NEVER mathematically added to it.
                 "contextual_severity": max_sev,
-                "confidence_in_probability": "HIGH" if completeness == "FULL" else "MEDIUM" if completeness == "PARTIAL" else "LOW"
+                "confidence_in_probability": ("HIGH" if completeness == "FULL" else "MEDIUM" if completeness == "PARTIAL" else "LOW") if calib_p is not None else "NONE"
             }
         }
         

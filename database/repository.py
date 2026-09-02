@@ -4,6 +4,31 @@ import datetime
 import sqlite3
 from typing import Dict, Any, Optional
 
+class DuplicateEventError(Exception):
+    pass
+
+def reserve_event(conn: sqlite3.Connection, event_id: str, correlation_id: str) -> None:
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO processed_events (event_id, status, correlation_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (event_id, "PROCESSING", correlation_id, now, now))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise DuplicateEventError(f"Event {event_id} has already been processed or is processing.")
+
+def update_event_status(conn: sqlite3.Connection, event_id: str, status: str, assessment_id: Optional[str] = None) -> None:
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE processed_events
+        SET status = ?, assessment_id = COALESCE(?, assessment_id), updated_at = ?
+        WHERE event_id = ?
+    ''', (status, assessment_id, now, event_id))
+    conn.commit()
+
 class DuplicateAssessmentError(Exception):
     pass
 

@@ -41,3 +41,6 @@ experiments/
 tb_logs/
 data/generated/
 razorbrain*.db
+
+# Docker volumes
+data_store/

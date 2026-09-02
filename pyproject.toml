@@ -16,6 +16,9 @@ dependencies = [
     "xgboost>=2.0.0",
     "shap>=0.44.0",
     "pyarrow>=14.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "httpx>=0.25.0",
 ]
 
 [project.optional-dependencies]

@@ -63,6 +63,12 @@ def compute_historical_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     out = df.copy()
     
+    # In live API inference, the target 'is_fraud' is not present. 
+    # For a stateless single-record inference, historical counts resolve to 0.
+    if "is_fraud" not in out.columns:
+        out["is_fraud"] = 0
+        
+    out["timestamp"] = pd.to_datetime(out["timestamp"])
     # 0. Global Chronological Sort
     out = out.sort_values("timestamp").reset_index(drop=True)
     
@@ -110,6 +116,16 @@ def compute_historical_features(df: pd.DataFrame) -> pd.DataFrame:
     
     # 4. Context & Missing Data Indicators (No learned state required)
     out = out.sort_values("timestamp").reset_index(drop=True)
+    
+    if "ip_address" not in out.columns:
+        out["ip_address"] = pd.NA
+    if "location" not in out.columns:
+        out["location"] = pd.NA
+    if "new_device_flag" not in out.columns:
+        out["new_device_flag"] = 0
+    if "new_location_flag" not in out.columns:
+        out["new_location_flag"] = 0
+        
     out["ip_is_missing"] = out["ip_address"].isna().astype(int)
     out["location_is_missing"] = out["location"].isna().astype(int)
     out["new_device_flag"] = out["new_device_flag"].astype(int)
@@ -129,6 +145,13 @@ def fit_transform_features(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, An
     TRAINING split, and transform it.
     """
     out = df.copy()
+    
+    # In live API inference, the target 'is_fraud' is not present. 
+    # For a stateless single-record inference, historical counts resolve to 0.
+    if "is_fraud" not in out.columns:
+        out["is_fraud"] = 0
+        
+    out["timestamp"] = pd.to_datetime(out["timestamp"])
     state: dict[str, Any] = {}
     
     # 1. Location Frequency Encoding

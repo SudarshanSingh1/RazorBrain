@@ -1,4 +1,4 @@
-<div align="center">
+readme_content = """<div align="center">
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Razorpay_logo.svg" width="300" alt="Razorpay Logo" />
 
@@ -345,8 +345,6 @@ RazorBrain utilizes an explanation-provider abstraction, defaulting to a determi
 
 RazorBrain implements an **append-only audit persistence** layer via SQLite.
 
-*(Note: Current deployment uses SQLite. PostgreSQL is reserved as a future production database option and is not currently enabled.)*
-
 **Core Tables:**
 - `migrations`
 - `transactions`
@@ -620,8 +618,8 @@ RazorBrain embraces transparency. The following limitations are documented expli
 | Comprehensive Robustness / Edge Cases | Complete | |
 | 100K+ Workload / Load Validation | Complete | |
 | Security + Failure/Recovery | Complete | |
-| Docker + Deployment | Complete | Backend image builds, frontend image builds, Compose healthy |
-| Deployed-System Validation | Complete | DB path fix applied; persistence, authentication, API validated |
+| Docker + Deployment | Conditionally Pass | Docker daemon unavailable in validation environment |
+| Deployed-System Validation | Not Started | |
 | Final Evaluation + Demo | Not Started | |
 
 ---
@@ -632,3 +630,7 @@ RazorBrain embraces transparency. The following limitations are documented expli
 AI Buildathon 2026 — Track 02: AI Risk Manager
 
 Deployment target: Docker-based local deployment; hosted deployment pending Phase 20.
+"""
+
+with open("README.md", "w") as f:
+    f.write(readme_content)
