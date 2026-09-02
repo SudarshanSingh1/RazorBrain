@@ -8,122 +8,140 @@ AI-powered transaction risk management for defensive fraud detection.
 ![XGBoost](https://img.shields.io/badge/XGBoost-191A1B?style=flat-square&logo=xgboost&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)
 
-## Overview
+RazorBrain analyzes transaction-level signals to estimate fraud risk, combines machine-learning with deterministic rules, produces explainable risk decisions, and surfaces evidence through an operational interface to protect against fraudulent activity.
 
-RazorBrain is a transaction fraud risk management system designed to identify suspicious patterns and protect against fraudulent activity. It analyzes transaction signals, combines machine-learning with defensive rules, and provides interpretable risk scores. The system supports Allow, Review, or Block decisions with transparent explanations of its risk assessment, using held-out evaluation data to measure and ensure robust performance.
+## Key Capabilities
 
-## How It Works
-
-```mermaid
-flowchart TD
-    A[Transaction] --> B[Validation]
-    B --> C[Feature Engineering]
-    C --> D[Risk Analysis]
-    D --> E[Decision Engine]
-    E --> F[Explanation]
-    F --> G[Risk Dashboard / API]
-```
-
-## Core Capabilities
-
-| Capability | Purpose |
-|------------|---------|
-| Risk Scoring | Estimate transaction fraud risk |
-| Rule Analysis | Detect explicit defensive risk signals |
-| ML Detection | Learn fraud patterns from transaction data |
-| Explainability | Show the factors contributing to risk |
-| Decision Engine | Route transactions to Allow, Review, or Block |
+| Capability | Description |
+|------------|-------------|
+| Risk Scoring | Estimate transaction-level fraud risk |
+| Explainability | Surface the factors behind a risk assessment |
+| Rule Analysis | Apply deterministic defensive signals |
+| Decisioning | Route transactions to Allow, Review, or Block |
 | Evaluation | Measure performance on held-out data |
-| Auditability | Preserve important risk decisions and evidence |
+| Auditability | Preserve important decision evidence |
 
-## Architecture
+## System Overview
+
+RazorBrain is designed as a multi-layered risk pipeline. Incoming transactions pass through validation and feature engineering before being evaluated concurrently by machine-learning models, defensive rules, and anomaly detection. These signals are synthesized into a final risk decision, which is then passed to an explanation layer and persisted for audit and evaluation purposes. 
 
 ```text
-Client / Dashboard
-        │
-        ▼
-Application API
-        │
-        ▼
-Risk Engine
- ┌──────┼────────┐
- ▼      ▼        ▼
-ML     Rules   Anomaly
- │      │        │
- └──────┼────────┘
-        ▼
-Decision Engine
-        │
-        ▼
-Explanation Layer
-        │
-        ▼
-Audit / Evaluation
+                    ┌──────────────────┐
+                    │    Transaction   │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │    Validation    │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Feature Pipeline │
+                    └────────┬─────────┘
+                             │
+             ┌───────────────┼───────────────┐
+             ▼               ▼               ▼
+        ┌─────────┐     ┌─────────┐    ┌──────────┐
+        │   ML    │     │  Rules  │    │ Anomaly  │
+        └────┬────┘     └────┬────┘    └─────┬────┘
+             └───────────────┼───────────────┘
+                             ▼
+                    ┌──────────────────┐
+                    │  Risk Decision   │
+                    └────────┬─────────┘
+                             │
+                     ┌───────┴────────┐
+                     ▼                ▼
+                Explanation       Audit /
+                                  Evaluation
 ```
+*(Note: This is a conceptual architecture representing the intended system design.)*
+
+## Risk Decisioning
+
+The decision model transforms raw data through the following flow:
+Risk signals → Risk score → Decision
+
+Decisions are categorized into **Allow**, **Review**, or **Block**. A critical safety rule governs this process: a single weak signal (such as a new device, a new location, or an unusually high amount) must not independently force a Block decision. Multiple independent signals are required to support high-risk automated actions.
+
+## Explainability
+
+RazorBrain explicitly separates Risk Determination from Risk Explanation. 
+
+The ML and risk engines determine the final risk assessment. The explanation layer (using tools like SHAP) surfaces the influential features and evidence that contributed to that assessment. The explanation model is strictly constrained:
+- It must never change the risk score.
+- It must never change the decision.
+- It must never invent transaction facts.
+- It must explicitly handle unavailable information.
+
+## Evaluation
+
+Model development relies on strictly separated data splits: training data, validation data, and held-out test data. The test set remains completely untouched during model development to ensure honest assessment. Performance is measured using robust metrics including Precision, Recall, F1, PR-AUC, Confusion Matrix, and False-positive cost. 
+
+Evaluation results will be reported once the model pipeline is complete.
 
 ## Project Structure
 
 ```text
 RazorBrain/
-├── backend/       API and application services
-├── frontend/      Web interface
-├── data/          Dataset and data-generation resources
-├── model/         Machine-learning components
-├── evaluation/    Evaluation and metrics
-├── tests/         Automated tests
+├── backend/
+├── frontend/
+├── data/
+├── model/
+├── evaluation/
+├── tests/
 ├── .env.example
 ├── .gitignore
 ├── LICENSE
 └── README.md
 ```
 
+| Directory | Responsibility |
+|-----------|----------------|
+| backend | API and application services |
+| frontend | Web interface |
+| data | Dataset and data resources |
+| model | ML components |
+| evaluation | Model evaluation |
+| tests | Automated tests |
+
 ## Technology
 
-**Backend**  
-FastAPI · Python
+| Layer | Technology |
+|------|------------|
+| Backend | Python, FastAPI |
+| ML | XGBoost, scikit-learn, SHAP |
+| Data | Pandas, NumPy |
+| Frontend | React, TypeScript |
+| Storage | PostgreSQL |
+| Infrastructure | Docker |
 
-**ML**  
-XGBoost · scikit-learn · SHAP
+## Engineering Principles
 
-**Frontend**  
-React · TypeScript
-
-**Data**  
-Pandas · NumPy
-
-**Infrastructure**  
-Docker · PostgreSQL
-
-## Development Principles
-
-### Engineering Principles
 - Reuse existing code before creating new code.
-- Prefer incremental improvements over rewrites.
-- Keep responsibilities separated and modules focused.
+- Prefer incremental improvements over unnecessary rewrites.
+- Keep modules focused and responsibilities clear.
 - Avoid duplicate logic and unnecessary dependencies.
 - Use standard professional naming.
-- Keep security-sensitive configuration outside source control.
+- Keep secrets outside source control.
 - Validate inputs and handle missing data safely.
-- Test important behavior before expanding functionality.
-- Keep model decisions separate from explanation generation.
+- Separate risk determination from explanation generation.
+- Test important behavior before expanding the system.
 
-### Risk Principles
+## Safety
+
 - Defensive fraud detection only.
-- Synthetic data for development/demo purposes.
-- Never use the LLM to determine fraud risk.
-- The explanation layer may explain evidence but cannot change the decision.
-- Never invent unavailable transaction facts.
-- Never allow one weak signal to independently force a block decision.
-- Keep the final test set held out for honest evaluation.
-
-## Evaluation
-
-RazorBrain evaluates the fraud detector strictly using held-out data kept separate from model development. Performance is measured using robust metrics such as Precision, Recall, F1, PR-AUC, Confusion Matrix, and False-positive cost. (Note: Evaluation is pending as the models are currently in active development).
+- Synthetic data for development and demonstration.
+- No offensive or abuse-enabling functionality.
+- Secrets remain outside source control.
+- The explanation layer cannot make risk decisions.
+- Missing or unreliable data should reduce confidence rather than crash the system.
 
 ## Getting Started
 
-Development setup is being established.
+The repository is currently establishing its foundation. Setup and execution instructions will be provided as application components are implemented.
 
-## Project Status
+## Status
 
-RazorBrain is under active development. The foundational repository structure is complete.
+RazorBrain is under active development. Repository foundation and architecture are being established before implementation of the risk pipeline.
