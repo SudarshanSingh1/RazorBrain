@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: razorbrain
+Version: 0.1.0
+Summary: AI-powered transaction risk management for defensive fraud detection.
+Requires-Python: >=3.11
+License-File: LICENSE
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pandas>=2.0
+Requires-Dist: numpy>=1.26
+Requires-Dist: scipy>=1.11
+Requires-Dist: scikit-learn>=1.3.0
+Requires-Dist: pyarrow>=14.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
+Requires-Dist: pytest-cov>=4.1; extra == "dev"
+Dynamic: license-file

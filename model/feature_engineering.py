@@ -55,98 +55,52 @@ for method in PaymentMethod:
     }
 
 
-def build_features(df: pd.DataFrame, is_training: bool = True, state: dict[str, Any] | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
+def compute_historical_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Transform raw transactions into the model-ready feature representation.
-    
-    Computes strict time-aware rolling aggregates. The current transaction
-    and its label are guaranteed to be excluded from its own historical features.
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Raw transaction DataFrame conforming to the Transaction schema.
-    is_training : bool
-        If True, computes encodings (like location_freq) from this dataset 
-        and returns them in the state. If False, uses the provided state.
-    state : dict[str, Any] | None
-        Fitted statistics (e.g., location frequencies) from training.
-        Required if is_training=False.
-        
-    Returns
-    -------
-    tuple[pd.DataFrame, dict[str, Any]]
-        The DataFrame with all engineered features appended/updated, and
-        the state dictionary for future inference.
+    Compute strictly time-aware rolling aggregates on the full dataset.
+    This must be run BEFORE chronological splitting so that later partitions
+    correctly see their preceding history.
     """
-    if not is_training and state is None:
-        raise ValueError("state must be provided when is_training=False")
-        
-    state = state or {}
-    
-    # Work on a copy to avoid mutating the original dataset
     out = df.copy()
     
-    # -----------------------------------------------------------------------
     # 0. Global Chronological Sort
-    # -----------------------------------------------------------------------
-    # Crucial for preventing future leakage during rolling/shifted operations
     out = out.sort_values("timestamp").reset_index(drop=True)
     
-    # -----------------------------------------------------------------------
     # 1. Customer History Features
-    # -----------------------------------------------------------------------
     out = out.sort_values(["customer_id", "timestamp"])
-    
-    # Count of prior transactions (cumcount starts at 0, natively excluding current row)
     out["previous_transaction_count"] = out.groupby("customer_id").cumcount()
-    
-    # Prior fraud count (cumulative sum of prior rows only)
     out["previous_fraud_count"] = (
         out.groupby("customer_id")["is_fraud"]
         .transform(lambda x: x.cumsum().shift(1).fillna(0))
         .astype(int)
     )
-    
-    # Prior amount average
     cum_amount = out.groupby("customer_id")["amount"].transform(lambda x: x.cumsum().shift(1).fillna(0))
-    
     out["is_new_customer"] = (out["previous_transaction_count"] == 0).astype(int)
     out["avg_customer_amount"] = np.where(
         out["previous_transaction_count"] > 0, 
         cum_amount / out["previous_transaction_count"], 
         0.0
     )
-    
     out["amount_deviation"] = np.where(
         out["previous_transaction_count"] > 0, 
         np.abs(out["amount"] - out["avg_customer_amount"]), 
         0.0
     )
     
-    # -----------------------------------------------------------------------
-    # 2. Customer Velocity Features (Time-aware)
-    # -----------------------------------------------------------------------
+    # 2. Customer Velocity Features
     out = out.set_index("timestamp")
-    
-    # .rolling().count() includes the current row, so we subtract 1.
     out["txns_last_5min"] = (out.groupby("customer_id")["transaction_id"].rolling("5min").count().reset_index(level=0, drop=True) - 1).astype(int)
     out["txns_last_1h"] = (out.groupby("customer_id")["transaction_id"].rolling("1h").count().reset_index(level=0, drop=True) - 1).astype(int)
     out["txns_last_24h"] = (out.groupby("customer_id")["transaction_id"].rolling("24h").count().reset_index(level=0, drop=True) - 1).astype(int)
-    
     out = out.reset_index()
     
-    # -----------------------------------------------------------------------
     # 3. Merchant History Features
-    # -----------------------------------------------------------------------
     out = out.sort_values(["merchant_id", "timestamp"])
-    
     merchant_txns_before = out.groupby("merchant_id").cumcount()
     merchant_fraud_before = (
         out.groupby("merchant_id")["is_fraud"]
         .transform(lambda x: x.cumsum().shift(1).fillna(0))
     )
-    
     out["is_new_merchant"] = (merchant_txns_before == 0).astype(int)
     out["merchant_fraud_rate"] = np.where(
         merchant_txns_before > 0, 
@@ -154,29 +108,49 @@ def build_features(df: pd.DataFrame, is_training: bool = True, state: dict[str, 
         0.0
     )
     
-    # -----------------------------------------------------------------------
-    # 4. Context & Missing Data Indicators
-    # -----------------------------------------------------------------------
+    # 4. Context & Missing Data Indicators (No learned state required)
     out = out.sort_values("timestamp").reset_index(drop=True)
-    
     out["ip_is_missing"] = out["ip_address"].isna().astype(int)
     out["location_is_missing"] = out["location"].isna().astype(int)
-    
     out["new_device_flag"] = out["new_device_flag"].astype(int)
     out["new_location_flag"] = out["new_location_flag"].astype(int)
     
-    # Location Frequency Encoding (Fit on training data only)
-    if is_training:
-        state["location_freqs"] = out["location"].value_counts(normalize=True).to_dict()
-    
-    out["location_freq"] = out["location"].map(state.get("location_freqs", {})).fillna(0.0)
-    
-    # Payment Method One-Hot Encoding
+    # Payment Method One-Hot Encoding (Deterministic based on enum)
     for method in PaymentMethod:
         col_name = f"payment_method_{method.value}"
         out[col_name] = (out["payment_method"] == method.value).astype(int)
         
+    return out
+
+
+def fit_transform_features(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """
+    Fit learned preprocessing (like category frequencies and scalers) on the 
+    TRAINING split, and transform it.
+    """
+    out = df.copy()
+    state: dict[str, Any] = {}
+    
+    # 1. Location Frequency Encoding
+    state["location_freqs"] = out["location"].value_counts(normalize=True).to_dict()
+    out["location_freq"] = out["location"].map(state["location_freqs"]).fillna(0.0)
+    
     return out, state
+
+
+def transform_features(df: pd.DataFrame, state: dict[str, Any]) -> pd.DataFrame:
+    """
+    Transform VALIDATION or TEST splits using exactly the state fitted on TRAIN.
+    """
+    if state is None:
+        raise ValueError("state must be provided to transform_features")
+        
+    out = df.copy()
+    
+    # 1. Location Frequency Encoding (using train state)
+    out["location_freq"] = out["location"].map(state.get("location_freqs", {})).fillna(0.0)
+    
+    return out
 
 
 def get_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
