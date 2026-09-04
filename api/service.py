@@ -6,7 +6,7 @@ from typing import Dict, Any
 from database.connection import get_session
 from database.repository import save_assessment, get_assessment
 
-from model.feature_engineering import compute_historical_features, transform_features, get_feature_matrix
+from model.feature_engineering import compute_historical_features
 from model.risk_fusion import fuse_risk_batch
 from model.decision_engine import make_decision
 
@@ -42,17 +42,13 @@ def assess_transaction(txn_data: Dict[str, Any], state) -> Dict[str, Any]:
                 else:
                     df_hist[c] = pd.NA
                     
-        # 3. Transform
-        val_feat = transform_features(df_hist, state.feature_encoder_state)
-        X_val = get_feature_matrix(val_feat)
-        
-        # 4. Risk Fusion
+        # 3 & 4. Risk Fusion (Pipeline handles transformation internally)
         fusion_results = fuse_risk_batch(
-            X_val, 
-            state.model_artifact, 
+            df_hist, 
+            state.model_artifact["base_model_artifact"] if "base_model_artifact" in state.model_artifact else state.model_artifact, 
             state.calibration_artifact, 
             state.explainer_artifact, 
-            state.training_thresholds,
+            state.training_thresholds or {},
             transaction_ids=pd.Series([txn_data.get("transaction_id", "unknown")])
         )
         
@@ -78,11 +74,26 @@ def assess_transaction(txn_data: Dict[str, Any], state) -> Dict[str, Any]:
     # 7. Persistence
     from database.repository import DuplicateAssessmentError
     try:
+        def _convert(obj):
+            import numpy as np
+            if isinstance(obj, dict):
+                return {k: _convert(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [_convert(v) for v in obj]
+            elif isinstance(obj, (np.integer, np.int64, np.int32)):
+                return int(obj)
+            elif isinstance(obj, (np.floating, np.float64, np.float32)):
+                return float(obj)
+            elif pd.api.types.is_datetime64_any_dtype(type(obj)):
+                return str(obj)
+            return obj
+
         with get_session(state.db_path) as conn:
-            # Type casting for pandas Timestamp which isn't json serializable natively
-            clean_txn = {k: (str(v) if pd.api.types.is_datetime64_any_dtype(type(v)) else v) for k, v in txn_data.items()}
+            clean_txn = _convert(txn_data)
+            clean_decision = _convert(decision_result)
+            clean_expl = _convert(explanation_result) if explanation_result else None
             
-            save_assessment(conn, clean_txn, decision_result, explanation_result)
+            save_assessment(conn, clean_txn, clean_decision, clean_expl)
     except DuplicateAssessmentError:
         raise
     except Exception as e:

@@ -1,0 +1,147 @@
+{
+    "metadata": {
+        "version": "1.0",
+        "model_track": "RAZORPAY_SERVING_MODEL",
+        "description": "Feature-restricted contract mapping IEEE-CIS concepts to Razorpay webhook availability."
+    },
+    "features": [
+        {
+            "name": "amount",
+            "type": "numeric",
+            "training_source": "TransactionAmt",
+            "serving_source": "payment.amount / 100",
+            "semantic_status": "DIRECTLY_ALIGNED",
+            "required": true,
+            "description": "Transaction amount in primary currency units (Rupees)"
+        },
+        {
+            "name": "log_amount",
+            "type": "numeric",
+            "training_source": "log1p(TransactionAmt)",
+            "serving_source": "log1p(payment.amount / 100)",
+            "semantic_status": "DIRECTLY_ALIGNED",
+            "required": true,
+            "description": "Log-scaled transaction amount"
+        },
+        {
+            "name": "hour_of_day",
+            "type": "numeric",
+            "training_source": "(TransactionDT % 86400) // 3600",
+            "serving_source": "payment.created_at hour",
+            "semantic_status": "DIRECTLY_ALIGNED",
+            "required": true,
+            "description": "Hour of the day in local timezone (0-23)"
+        },
+        {
+            "name": "day_of_week",
+            "type": "numeric",
+            "training_source": "(TransactionDT // 86400) % 7",
+            "serving_source": "payment.created_at weekday",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": true,
+            "description": "Pseudo day of week preserving 7-day cyclicality"
+        },
+        {
+            "name": "email_domain",
+            "type": "categorical",
+            "training_source": "P_emaildomain",
+            "serving_source": "payment.email domain",
+            "semantic_status": "DIRECTLY_ALIGNED",
+            "required": false,
+            "missing_representation": "MISSING",
+            "description": "Email provider domain"
+        },
+        {
+            "name": "email_domain_missing",
+            "type": "numeric",
+            "training_source": "P_emaildomain isna",
+            "serving_source": "payment.email is None",
+            "semantic_status": "DIRECTLY_ALIGNED",
+            "required": true,
+            "description": "Binary indicator for missing email"
+        },
+        {
+            "name": "card_network",
+            "type": "categorical",
+            "training_source": "card4",
+            "serving_source": "payment.card.network",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": false,
+            "missing_representation": "MISSING",
+            "description": "Card network (Visa, Mastercard, etc). MISSING for non-card payments."
+        },
+        {
+            "name": "card_type",
+            "type": "categorical",
+            "training_source": "card6",
+            "serving_source": "payment.card.type",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": false,
+            "missing_representation": "MISSING",
+            "description": "Card type (credit, debit). MISSING for non-card payments."
+        },
+        {
+            "name": "previous_transaction_count",
+            "type": "numeric",
+            "training_source": "groupby(card1) cumcount",
+            "serving_source": "Database: COUNT(transactions) for customer_id before current timestamp",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": true,
+            "description": "Number of previous transactions by this entity"
+        },
+        {
+            "name": "is_new_customer",
+            "type": "numeric",
+            "training_source": "previous_transaction_count == 0",
+            "serving_source": "Database: previous_transaction_count == 0",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": true,
+            "description": "Binary indicator for first-time entity"
+        },
+        {
+            "name": "avg_customer_amount",
+            "type": "numeric",
+            "training_source": "groupby(card1) expanding mean (shifted)",
+            "serving_source": "Database: AVG(amount) for customer_id before current timestamp",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": true,
+            "description": "Historical average transaction amount for entity"
+        },
+        {
+            "name": "amount_deviation",
+            "type": "numeric",
+            "training_source": "amount - avg_customer_amount",
+            "serving_source": "amount - Database AVG(amount)",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": true,
+            "description": "Deviation from historical average amount"
+        },
+        {
+            "name": "amount_ratio",
+            "type": "numeric",
+            "training_source": "amount / avg_customer_amount",
+            "serving_source": "amount / Database AVG(amount)",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": true,
+            "description": "Ratio of current amount to historical average amount"
+        },
+        {
+            "name": "txns_last_1h",
+            "type": "numeric",
+            "training_source": "Count prior rows where dt >= dt - 3600s",
+            "serving_source": "Database: COUNT(transactions) in last hour for customer_id",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": true,
+            "description": "Entity transaction velocity over 1 hour window"
+        },
+        {
+            "name": "txns_last_24h",
+            "type": "numeric",
+            "training_source": "Count prior rows where dt >= dt - 86400s",
+            "serving_source": "Database: COUNT(transactions) in last 24 hours for customer_id",
+            "semantic_status": "CONCEPTUALLY_ALIGNED",
+            "required": true,
+            "description": "Entity transaction velocity over 24 hour window"
+        }
+    ]
+}

@@ -1,0 +1,63 @@
+{
+    "dataset": {
+        "n_total": 88581,
+        "n_fraud": 3083,
+        "n_legit": 85498,
+        "fraud_prevalence": 0.03480430340592226
+    },
+    "metrics_at_threshold_0.50": {
+        "roc_auc": 0.7626724753116326,
+        "pr_auc": 0.14522036977185174,
+        "precision": 0.08505288711635166,
+        "recall": 0.6363931235809277,
+        "f1": 0.15005162326488472,
+        "specificity": 0.7531404243374114,
+        "fpr": 0.2468595756625886,
+        "fnr": 0.36360687641907236,
+        "confusion_matrix": {
+            "tn": 64392,
+            "fp": 21106,
+            "fn": 1121,
+            "tp": 1962
+        }
+    },
+    "score_distribution_all": {
+        "min": 0.03776596114039421,
+        "p25": 0.27286040782928467,
+        "p50": 0.35757461190223694,
+        "p75": 0.5076727271080017,
+        "p90": 0.6523938775062561,
+        "p95": 0.729118287563324,
+        "p99": 0.8687350153923035,
+        "max": 0.9369557499885559
+    },
+    "score_distribution_fraud": {
+        "mean": 0.5807746052742004,
+        "median": 0.5946683883666992,
+        "p90": 0.8522893786430359
+    },
+    "score_distribution_legit": {
+        "mean": 0.39346960186958313,
+        "median": 0.35280975699424744,
+        "p90": 0.6372255086898804
+    },
+    "gap_analysis": {
+        "train_roc_auc": 0.7880093283729585,
+        "train_pr_auc": 0.17086156740994973,
+        "val_roc_auc": 0.765094143053994,
+        "val_pr_auc": 0.18062558259665518,
+        "test_roc_auc": 0.7626724753116326,
+        "test_pr_auc": 0.14522036977185174,
+        "val_to_test_roc_gap": -0.002421667742361411,
+        "val_to_test_pr_gap": -0.03540521282480344,
+        "train_to_test_roc_gap": -0.025336853061325826,
+        "train_to_test_pr_gap": -0.025641197638097996
+    },
+    "integrity_hashes": {
+        "data/razorpay_serving_model_uncalibrated.joblib": "1242b74830962d8d323676563648ffdb",
+        "data/razorpay_serving_dataset/test.csv": "fc4e76764a2e7ad1df631ce37d050f35",
+        "data/model_c_calibrated.joblib": "17eaa5aad2a2672f497221362ee4cefd",
+        "data/model_c_engineered_raw_safe.joblib": "7de3be91a463ce8d9c74193869212aea",
+        "data/validation_selected_policy.json": "a6f2994d904e4dab0bb8ceca52924106"
+    }
+}

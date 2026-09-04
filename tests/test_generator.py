@@ -31,6 +31,7 @@ _SEED_A = 42
 _SEED_B = 99
 
 _REQUIRED_COLUMNS = [
+    "label_available_at",
     "transaction_id",
     "customer_id",
     "merchant_id",
@@ -53,6 +54,7 @@ _REQUIRED_COLUMNS = [
     "new_device_flag",
     "new_location_flag",
     "is_fraud",
+    "label_available_at",
 ]
 
 

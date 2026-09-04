@@ -4,10 +4,15 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Overview from './pages/Overview';
 import RiskAnalytics from './pages/RiskAnalytics';
+import DriftMonitoring from './pages/DriftMonitoring';
+import Evaluation from './pages/Evaluation';
+import { BarChart2, TrendingUp } from 'lucide-react';
 import Transactions from './pages/Transactions';
 import ReviewQueue from './pages/ReviewQueue';
 import AuditTrail from './pages/AuditTrail';
 import TransactionDetail from './pages/TransactionDetail';
+import { RazorpayTest } from './pages/RazorpayTest';
+import { CreditCard } from 'lucide-react';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -29,9 +34,12 @@ const Sidebar = () => {
   const navItems = [
     { name: 'Overview', path: '/', icon: Shield },
     { name: 'Risk Analytics', path: '/risk-analytics', icon: Activity },
+    { name: 'Drift Monitoring', path: '/drift-monitoring', icon: TrendingUp },
+    { name: 'Evaluation', path: '/evaluation', icon: BarChart2 },
     { name: 'Transactions', path: '/transactions', icon: List },
     { name: 'Review Queue', path: '/review-queue', icon: ClipboardCheck },
     { name: 'Audit Trail', path: '/audit', icon: History },
+    { name: 'Razorpay Test', path: '/razorpay-test', icon: CreditCard },
   ];
 
   return (
@@ -89,9 +97,15 @@ const Header = () => {
   if (location.pathname.startsWith("/risk-analytics")) {
     title = "Risk Analytics";
     desc = "Deep dive into model probabilities and deterministic rule triggers.";
+  } else if (location.pathname.startsWith("/evaluation")) {
+    title = "Evaluation";
+    desc = "Ground-truth performance feedback and operational metrics.";
+  } else if (location.pathname.startsWith("/razorpay-test")) {
+    title = "Razorpay TEST MODE";
+    desc = "End-to-end testing integration for Razorpay orders and payments.";
   } else if (location.pathname.startsWith("/transactions/")) {
     title = "Transaction Investigation";
-    desc = "Deep inspection of transaction context, model evidence, and AI explanation.";
+    desc = "Deep inspection of transaction context, model evidence, and deterministic evidence summary.";
   } else if (location.pathname.startsWith("/transactions")) {
     title = "Transactions Explorer";
     desc = "Search and filter actual risk assessments.";
@@ -141,10 +155,13 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Overview />} />
                 <Route path="/risk-analytics" element={<RiskAnalytics />} />
+                <Route path="/drift-monitoring" element={<DriftMonitoring />} />
+                <Route path="/evaluation" element={<Evaluation />} />
                 <Route path="/transactions" element={<Transactions />} />
                 <Route path="/transactions/:id" element={<TransactionDetail />} />
                 <Route path="/review-queue" element={<ReviewQueue />} />
                 <Route path="/audit" element={<AuditTrail />} />
+                <Route path="/razorpay-test" element={<RazorpayTest />} />
               </Routes>
             </div>
           </div>

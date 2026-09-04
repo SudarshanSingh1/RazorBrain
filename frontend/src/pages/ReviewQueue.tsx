@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getTransactions } from '../api';
+import { getTransactions, getOperationalAnalytics } from '../api';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
@@ -9,10 +9,16 @@ export default function ReviewQueue() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const limit = 20;
+  const [distribution, setDistribution] = useState<any>(null);
+
+  useEffect(() => {
+    getOperationalAnalytics().then(res => setDistribution(res.data.review_workload));
+  }, []);
+
 
   useEffect(() => {
     setLoading(true);
-    getTransactions({ limit, offset: page * limit, decision: 'REVIEW' })
+    getTransactions({ limit, offset: page * limit, decision: 'REVIEW', unresolved_only: true })
       .then(res => {
         setData(res.data.data);
         setTotal(res.data.total);
@@ -20,6 +26,17 @@ export default function ReviewQueue() {
       })
       .catch(() => setLoading(false));
   }, [page]);
+
+  
+  const getPriorityBadge = (tier: string) => {
+    if (!tier) return null;
+    switch(tier) {
+      case 'CRITICAL': return <span className="px-2 py-0.5 rounded bg-red-900/40 text-red-400 text-[10px] font-bold">CRITICAL</span>;
+      case 'HIGH': return <span className="px-2 py-0.5 rounded bg-orange-900/40 text-orange-400 text-[10px] font-bold">HIGH</span>;
+      case 'NORMAL': return <span className="px-2 py-0.5 rounded bg-blue-900/40 text-blue-400 text-[10px] font-bold">NORMAL</span>;
+      default: return null;
+    }
+  }
 
   const getConfBadge = (conf: string) => {
     switch(conf) {
@@ -34,12 +51,36 @@ export default function ReviewQueue() {
   return (
     <div className="space-y-6">
       
+      
+      {distribution && (
+        <div className="grid grid-cols-4 gap-4 mb-2">
+          <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-xl flex justify-between items-center">
+            <span className="text-sm font-medium text-slate-400">Pending Reviews</span>
+            <span className="text-2xl font-bold text-slate-200">{distribution.pending.toLocaleString()}</span>
+          </div>
+          <div className="bg-[#0f172a] border border-red-900/30 p-4 rounded-xl flex justify-between items-center border-l-4 border-l-red-500">
+            <span className="text-sm font-medium text-slate-400">CRITICAL</span>
+            <span className="text-2xl font-bold text-red-400">{distribution.priority_distribution.critical.toLocaleString()}</span>
+          </div>
+          <div className="bg-[#0f172a] border border-orange-900/30 p-4 rounded-xl flex justify-between items-center border-l-4 border-l-orange-500">
+            <span className="text-sm font-medium text-slate-400">HIGH</span>
+            <span className="text-2xl font-bold text-orange-400">{distribution.priority_distribution.high.toLocaleString()}</span>
+          </div>
+          <div className="bg-[#0f172a] border border-blue-900/30 p-4 rounded-xl flex justify-between items-center border-l-4 border-l-blue-500">
+            <span className="text-sm font-medium text-slate-400">NORMAL</span>
+            <span className="text-2xl font-bold text-blue-400">{distribution.priority_distribution.normal.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
+      
       <div className="bg-[#0f172a] border border-amber-900/30 rounded-xl overflow-hidden shadow-sm flex flex-col h-[calc(100vh-12rem)] shadow-amber-900/5">
+
         
         <div className="overflow-x-auto flex-1 custom-scrollbar relative">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0B1120] text-slate-400 uppercase tracking-widest text-[10px] sticky top-0 z-10 shadow-sm border-b border-amber-900/30">
               <tr>
+                <th className="px-4 py-3 font-semibold">Priority</th>
                 <th className="px-4 py-3 font-semibold">Timestamp</th>
                 <th className="px-4 py-3 font-semibold">Transaction ID</th>
                 <th className="px-4 py-3 font-semibold text-right">Amount</th>
@@ -64,6 +105,7 @@ export default function ReviewQueue() {
               ) : (
                 data.map((row) => (
                   <tr key={row.assessment_id} className="hover:bg-amber-900/10 transition-colors group border-l-2 border-l-amber-500">
+                    <td className="px-4 py-3">{getPriorityBadge(row.priority_tier)}</td>
                     <td className="px-4 py-3 text-slate-300 text-xs font-mono">{new Date(row.timestamp).toLocaleString()}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-500 group-hover:text-slate-300 transition-colors">{row.transaction_id}</td>
                     <td className="px-4 py-3 text-slate-200 text-right font-mono text-xs">${row.amount?.toFixed(2)}</td>

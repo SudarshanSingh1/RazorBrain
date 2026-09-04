@@ -38,7 +38,7 @@ def test_full_evidence_decision_explanation_contract():
         result = resp.json()
         
         assert "assessment_id" in result
-        assert result["decision_record"]["decision"] in ["ALLOW", "REVIEW", "BLOCK"]
+        assert result["decision"] in ["ALLOW", "REVIEW", "BLOCK"]
         
         assessment_id = result["assessment_id"]
         

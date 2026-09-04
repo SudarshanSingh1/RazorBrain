@@ -1,0 +1,24 @@
+{
+  "algorithm": "XGBoost",
+  "validation_metrics": {
+    "tp": 122,
+    "tn": 12688,
+    "fp": 121,
+    "fn": 2069,
+    "precision": 0.5020576131687243,
+    "recall": 0.05568233683249658,
+    "f1": 0.10024650780608052,
+    "roc_auc": 0.7361236442356272,
+    "pr_auc": 0.318617883998819,
+    "brier": 0.11277062445878983,
+    "log_loss": 0.3710774779319763,
+    "max_prob": 0.6969648003578186,
+    "legit_allow": 6805,
+    "legit_review": 6001,
+    "legit_block": 3,
+    "fraud_allow": 417,
+    "fraud_review": 1770,
+    "fraud_block": 4
+  },
+  "timestamp": 1788386865.7905831
+}

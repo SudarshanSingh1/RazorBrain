@@ -95,7 +95,7 @@ _SIMULATION_WINDOW_DAYS: int = 90
 #
 # IPs        : 2,000  → shared infrastructure; multiple customers can share
 #              an IP (corporate NAT, shared wifi, etc.).
-_N_CUSTOMERS: int = 1_000
+_N_CUSTOMERS: int = 25_000
 _N_MERCHANTS: int = 80
 _N_DEVICES: int = 1_500
 _N_LOCATIONS: int = 50
@@ -149,7 +149,10 @@ def generate_transactions(n: int, seed: int) -> pd.DataFrame:
     # -----------------------------------------------------------------------
     # Build entity pools with consistent, seeded attributes.
     # -----------------------------------------------------------------------
-    customers = _build_customer_pool(rng)
+    # Compute start_epoch first to pass to customer pool
+    start_ts = datetime.now(timezone.utc) - timedelta(days=_SIMULATION_WINDOW_DAYS)
+    start_epoch = start_ts.timestamp()
+    customers = _build_customer_pool(rng, start_epoch)
     merchants = _build_merchant_pool(rng)
     devices = [f"dev_{i:04d}" for i in range(_N_DEVICES)]
     locations = [f"LOC_{i:02d}" for i in range(_N_LOCATIONS)]
@@ -169,9 +172,8 @@ def generate_transactions(n: int, seed: int) -> pd.DataFrame:
 
     # Timestamps spread across the simulation window (UTC, timezone-aware).
     # Sort so the DataFrame is time-ordered, supporting velocity features.
-    start_ts = datetime.now(timezone.utc) - timedelta(days=_SIMULATION_WINDOW_DAYS)
+    # start_ts and start_epoch computed earlier
     offset_seconds = np.sort(rng.integers(0, _SIMULATION_WINDOW_DAYS * 86400, size=n))
-    start_epoch = start_ts.timestamp()
     epoch_times = start_epoch + offset_seconds.astype(float)
 
     # Transaction amounts from a log-normal distribution.
@@ -224,6 +226,7 @@ def generate_transactions(n: int, seed: int) -> pd.DataFrame:
     # Assemble rows — per-transaction logic only (no inner RNG calls).
     # -----------------------------------------------------------------------
     rows: list[dict] = []
+    actual_customer_fraud_count = {cust["customer_id"]: 0 for cust in customers}
     for i in range(n):
         cust = customers[cust_ids[i]]
         merch = merchants[merch_ids[i]]
@@ -270,12 +273,24 @@ def generate_transactions(n: int, seed: int) -> pd.DataFrame:
             failed_24h=failed_24h,
             deviation=deviation,
             avg_amount=avg_amount,
-            customer_fraud_history=cust["previous_fraud_count"],
-            account_age_days=cust["account_age_days"],
+            customer_fraud_history=actual_customer_fraud_count[cust["customer_id"]],
+            account_age_days=max(0, int((float(epoch_times[i]) - cust["account_creation_epoch"]) / 86400)),
             merchant_fraud_rate=merch["fraud_rate"],
             noise=float(fraud_noise[i]),
         )
         is_fraud = bool(fraud_outcome_draws[i] < fraud_prob)
+        # Simulate label availability delay for fraud transactions
+        if is_fraud:
+            # Exponential delay mean ~ 48 hours
+            delay_hours = float(rng.exponential(48.0))
+            label_available_at = datetime.fromtimestamp(float(epoch_times[i]) + (delay_hours * 3600), tz=timezone.utc)
+        else:
+            delay_hours = float(rng.exponential(24.0 * 7))
+            label_available_at = datetime.fromtimestamp(float(epoch_times[i]) + (delay_hours * 3600), tz=timezone.utc)
+        if is_fraud:
+            actual_customer_fraud_count[cust["customer_id"]] += 1
+        if is_fraud:
+            actual_customer_fraud_count[cust["customer_id"]] += 1
 
         # --- Timestamp (from pre-sorted epoch array) ----------------------
         ts = datetime.fromtimestamp(float(epoch_times[i]), tz=timezone.utc)
@@ -293,7 +308,7 @@ def generate_transactions(n: int, seed: int) -> pd.DataFrame:
                 "amount": amount,
                 "payment_method": payment_methods[i],
                 "location": location,
-                "customer_account_age_days": cust["account_age_days"],
+                "customer_account_age_days": max(0, int((float(epoch_times[i]) - cust["account_creation_epoch"]) / 86400)),
                 "previous_transaction_count": cust["previous_transaction_count"],
                 "previous_fraud_count": cust["previous_fraud_count"],
                 "failed_attempt_count_24h": failed_24h,
@@ -306,6 +321,7 @@ def generate_transactions(n: int, seed: int) -> pd.DataFrame:
                 "new_device_flag": new_device,
                 "new_location_flag": new_location,
                 "is_fraud": is_fraud,
+                "label_available_at": label_available_at.isoformat().replace("+00:00", "Z") if label_available_at else None,
             }
         )
 
@@ -323,7 +339,7 @@ def generate_transactions(n: int, seed: int) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def _build_customer_pool(rng: np.random.Generator) -> list[dict]:
+def _build_customer_pool(rng: np.random.Generator, start_epoch: float) -> list[dict]:
     """
     Build a fixed pool of synthetic customer entities.
 
@@ -365,7 +381,7 @@ def _build_customer_pool(rng: np.random.Generator) -> list[dict]:
         customers.append(
             {
                 "customer_id": f"cust_{i:04d}",
-                "account_age_days": int(rng.integers(1, 3650)),
+                "account_creation_epoch": start_epoch - (int(rng.integers(1, 3650)) * 86400),
                 "previous_transaction_count": prev_txn_count,
                 "previous_fraud_count": int(rng.integers(0, 3)),
                 "avg_amount": avg_amount,
@@ -452,9 +468,9 @@ def _compute_fraud_probability(
 
     # Velocity spike
     if txns_last_5min >= 3:
-        multiplier += 0.8
+        multiplier += 2.0
     elif txns_last_5min >= 2:
-        multiplier += 0.3
+        multiplier += 1.0
 
     # Failed attempts
     if failed_24h >= 5:
@@ -466,23 +482,23 @@ def _compute_fraud_probability(
     if avg_amount > 0:
         relative_dev = deviation / avg_amount
         if relative_dev > 5.0:
-            multiplier += 0.7
+            multiplier += 3.0
         elif relative_dev > 2.0:
-            multiplier += 0.3
+            multiplier += 1.5
 
     # Device and location novelty — each moderate alone, additive together
     if new_device:
-        multiplier += 0.25
+        multiplier += 2.0
     if new_location:
-        multiplier += 0.25
+        multiplier += 2.0
     if new_device and new_location:
-        multiplier += 0.5   # additional co-occurrence penalty
+        multiplier += 4.0   # additional co-occurrence penalty
 
     # Customer fraud history
     if customer_fraud_history >= 2:
-        multiplier += 1.2
+        multiplier += 5.0
     elif customer_fraud_history == 1:
-        multiplier += 0.5
+        multiplier += 2.0
 
     # New account (higher susceptibility / less behavioural history)
     if account_age_days < 7:
@@ -492,9 +508,9 @@ def _compute_fraud_probability(
 
     # Merchant risk profile
     if merchant_fraud_rate > 0.1:
-        multiplier += 0.6 * merchant_fraud_rate
+        multiplier += 8.0 * merchant_fraud_rate
     elif merchant_fraud_rate > 0.05:
-        multiplier += 0.3 * merchant_fraud_rate
+        multiplier += 1.5 * merchant_fraud_rate
 
     # Apply multiplier and add calibration noise for realism.
     p = min(p * multiplier + noise, 1.0)

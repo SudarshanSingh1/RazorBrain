@@ -94,8 +94,8 @@ def test_round_trip_integrity(test_db, sample_data):
     assert retrieved["primary_risk_probability"] == 0.05
     assert retrieved["confidence_in_probability"] == "HIGH"
     
-    assert retrieved["decision_record"]["decision"] == "ALLOW"
-    assert retrieved["decision_record"]["decision_reason"] == "Low risk."
+    assert retrieved["decision"] == "ALLOW"
+    assert retrieved["decision_reason"] == "Low risk."
     
     assert len(retrieved["rule_evidence"]) == 1
     assert retrieved["rule_evidence"][0]["rule_id"] == "velocity_new_device"
@@ -224,5 +224,5 @@ def test_retrieval_does_not_recompute(test_db, sample_data):
     # The retrieved object is a plain dictionary containing strictly the historical strings/floats.
     # No ML objects (like xgb.Booster or shap.Explainer) are attached or executed.
     assert isinstance(retrieved["primary_risk_probability"], float)
-    assert isinstance(retrieved["decision_record"]["decision"], str)
-    assert retrieved["decision_record"]["decision"] == dec_result["decision"]
+    assert isinstance(retrieved["decision"], str)
+    assert retrieved["decision"] == dec_result["decision"]

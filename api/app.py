@@ -1,13 +1,18 @@
 import logging
 import uuid
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.lifespan import lifespan, app_state
 from api.routes import router
+from api.razorpay_routes import router as razorpay_router
+from api.razorpay_routes import webhook_router
+from api.dashboard_routes import router as dashboard_router
 from api.schemas import ErrorResponse, ErrorDetail
 
 logger = logging.getLogger(__name__)
@@ -21,11 +26,12 @@ app = FastAPI(
 )
 
 app.state.razor_state = app_state
+
 app.include_router(router)
-from api.dashboard_routes import router as dashboard_router
+app.include_router(razorpay_router)
+app.include_router(webhook_router)
 app.include_router(dashboard_router)
 
-import os
 cors_origins_env = os.environ.get("RAZORBRAIN_CORS_ORIGINS", "*")
 allow_origins = [origin.strip() for origin in cors_origins_env.split(",")] if cors_origins_env else ["*"]
 
@@ -36,10 +42,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):

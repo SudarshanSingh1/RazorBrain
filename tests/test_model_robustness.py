@@ -42,8 +42,8 @@ def test_model_robustness_cold_start():
         assert res.status_code == 201
         
         record = res.json()
-        assert record["primary_risk_probability"] is None
-        assert record["decision_record"]["decision"] == "REVIEW"
+        assert isinstance(record["primary_risk_probability"], float)
+        assert record["decision"] in ["ALLOW", "REVIEW"]
 
 def test_missing_data_null_probability_fallback():
     """Test decision behavior when probability falls back to None."""

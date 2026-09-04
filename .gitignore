@@ -44,3 +44,9 @@ razorbrain*.db
 
 # Docker volumes
 data_store/
+
+# Phase 33.5 Cleanup: Data and Credentials
+data/raw/*.csv
+data/raw/*.zip
+*.db
+rzp-test-key.csv

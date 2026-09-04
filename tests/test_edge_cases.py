@@ -31,7 +31,7 @@ def test_input_boundary_extreme_amount():
         assert res.status_code in (200, 201)
         # Extreme amount might trigger a rule or model, but it shouldn't crash
         data = res.json()
-        assert data["decision_record"]["decision"] in ("ALLOW", "REVIEW", "BLOCK")
+        assert data["decision"] in ("ALLOW", "REVIEW", "BLOCK")
 
 def test_input_boundary_negative_amount():
     with TestClient(app) as client:

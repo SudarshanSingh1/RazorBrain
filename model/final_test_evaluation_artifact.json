@@ -1,0 +1,96 @@
+{
+  "dataset_rows": 15000,
+  "fraud_rows": 2294,
+  "legitimate_rows": 12706,
+  "fraud_prevalence": 0.15293333333333334,
+  "classification_metrics": {
+    "tp": 114,
+    "tn": 12567,
+    "fp": 139,
+    "fn": 2180,
+    "precision": 0.4505928853754941,
+    "recall": 0.04969485614646905,
+    "f1": 0.0895170789163722,
+    "roc_auc": 0.727421783858164,
+    "pr_auc": 0.3129177714122815,
+    "accuracy": 0.8454,
+    "specificity": 0.9890602864788289,
+    "fpr": 0.0109397135211711,
+    "fnr": 0.9503051438535309
+  },
+  "decision_metrics": {
+    "legit_allow": 6366,
+    "legit_review": 6339,
+    "legit_block": 1,
+    "fraud_allow": 392,
+    "fraud_review": 1900,
+    "fraud_block": 2
+  },
+  "business_cost": {
+    "fraud_allowed_cost": 196000,
+    "fraud_reviewed_cost": 95000,
+    "legit_reviewed_cost": 316950,
+    "legit_blocked_cost": 100,
+    "total_test_business_cost": 608050,
+    "avg_cost_per_transaction": 40.53666666666667,
+    "avg_cost_per_fraud": 126.85265911072362,
+    "avg_cost_per_legit": 24.95277821501653
+  },
+  "probability_distribution": {
+    "min": 0.05303720012307167,
+    "max": 0.6691493988037109,
+    "median": 0.11115359514951706,
+    "q25": 0.06760179251432419,
+    "q75": 0.23087237775325775,
+    "num_geq_10": 8242,
+    "num_geq_40": 253,
+    "brier": 0.11771633476018906,
+    "log_loss": 0.38415440917015076
+  },
+  "rule_triggers": {
+    "missing_critical_context": 743,
+    "repeated_fraud": 4376,
+    "extreme_amount_single_signal": 136,
+    "risky_merchant_new_customer": 37,
+    "deviation_new_location": 21,
+    "velocity_new_device": 1
+  },
+  "severity_distribution": {
+    "INFO": 743,
+    "LOW": 136,
+    "MEDIUM": 58,
+    "HIGH": 4377
+  },
+  "blocking_eligible_triggers": 59,
+  "qual_but_rejected": 250,
+  "model_rule_conflicts": 7,
+  "shap": {
+    "top_global_mean_abs": {
+      "previous_fraud_count": 0.5176871067593495,
+      "amount": 0.1796893964097486,
+      "new_device_flag": 0.15467034067536395,
+      "new_location_flag": 0.1485880077938239,
+      "merchant_fraud_rate": 0.09926246853883058
+    },
+    "top_positive": {
+      "previous_fraud_count": 1.1464858981738142,
+      "new_device_flag": 0.6268525612391648,
+      "new_location_flag": 0.6061540136013873,
+      "merchant_fraud_rate": 0.25097017784967024,
+      "amount": 0.24497613528661313
+    },
+    "top_negative": {
+      "previous_fraud_count": -0.2586863997535421,
+      "amount": -0.14730972627564592,
+      "new_device_flag": -0.09848752517374049,
+      "new_location_flag": -0.09452597878115239,
+      "merchant_fraud_rate": -0.0540153881956461
+    }
+  },
+  "data_quality": {
+    "no_missing_target": true,
+    "both_classes_exist": true,
+    "feature_columns_match": true,
+    "no_target_in_features": true
+  }
+}

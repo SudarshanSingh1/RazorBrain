@@ -9,128 +9,69 @@ preventing weak signals or single correlated features from triggering blocks.
 from __future__ import annotations
 
 import logging
-from typing import Any
 import math
+import json
 
 logger = logging.getLogger(__name__)
 
 
+class InvalidPolicyError(Exception):
+    pass
+
+
 class DecisionPolicy:
-    """Configurable thresholds for operational decisions."""
-    def __init__(self, allow_threshold: float, block_threshold: float):
-        if not (0.0 <= allow_threshold <= block_threshold <= 1.0):
-            raise ValueError("Thresholds must satisfy 0 <= allow <= block <= 1")
-        self.allow_threshold = allow_threshold
-        self.block_threshold = block_threshold
+    """Configurable thresholds for operational decisions strictly loaded from JSON."""
+    def __init__(self, t_review: float, t_block: float, metadata: dict = None):
+        if not (0.0 <= t_review < t_block <= 1.0):
+            raise InvalidPolicyError("Thresholds must satisfy 0 <= t_review < t_block <= 1")
+        self.t_review = t_review
+        self.t_block = t_block
+        self.metadata = metadata or {}
 
-
-# Explicit mapping of which rules constitute independent corroborating evidence for a BLOCK.
-# HIGH severity does NOT automatically imply blocking-eligible.
-# For example, `repeated_fraud` is highly correlated with the model's history features.
-RULE_BLOCKING_ELIGIBILITY = {
-    "velocity_new_device": True,
-    "deviation_new_location": True,
-    "risky_merchant_new_customer": True,
-    "missing_critical_context": False,
-    "extreme_amount_single_signal": False,
-    "repeated_fraud": False  # Not independent (correlated with model feature previous_fraud_count)
-}
-
-
-def _has_independent_blocking_evidence(rule_evidence: dict[str, Any]) -> bool:
-    """
-    Guardrail: BLOCK requires independent, non-correlated severe evidence.
+def load_policy(path: str = "data/validation_selected_policy.json") -> DecisionPolicy:
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except Exception as e:
+        raise InvalidPolicyError(f"Failed to load policy: {e}")
     
-    Checks if there is a MEDIUM or HIGH severity rule triggered that is explicitly
-    flagged as blocking-eligible in the RULE_BLOCKING_ELIGIBILITY mapping.
-    """
-    triggered = rule_evidence.get("triggered_rules", [])
-    for rule in triggered:
-        sev = rule.get("severity")
-        r_id = rule.get("rule_id")
+    if data.get("policy_status") != "VALIDATION_SELECTED":
+        raise InvalidPolicyError("Policy status is not VALIDATION_SELECTED")
         
-        is_eligible = RULE_BLOCKING_ELIGIBILITY.get(r_id, False)
+    return DecisionPolicy(
+        t_review=data["t_review"],
+        t_block=data["t_block"],
+        metadata=data
+    )
+
+def make_decision(calibrated_risk: float, policy: DecisionPolicy, fusion_result: dict = None) -> dict:
+    """
+    Evaluates calibrated risk against deterministic boundaries.
+    Evidence does NOT change the decision, it only explains it.
+    """
+    if calibrated_risk is None or not isinstance(calibrated_risk, (float, int)) or math.isnan(calibrated_risk):
+        decision = "REVIEW"
+    elif calibrated_risk >= policy.t_block:
+        decision = "BLOCK"
+    elif calibrated_risk >= policy.t_review:
+        decision = "REVIEW"
+    else:
+        decision = "ALLOW"
         
-        if sev in ["MEDIUM", "HIGH"] and is_eligible:
-            return True
-            
-    return False
-
-
-def make_decision(fusion_result: dict[str, Any], policy: DecisionPolicy) -> dict[str, Any]:
-    """
-    Evaluate the fusion result against the decision policy and safety guardrails.
-    Returns a structured decision result.
-    """
-    tid = fusion_result.get("transaction_id", "UNKNOWN")
-    
-    # 1. Extract Probability with extreme safety
-    summary = fusion_result.get("fusion_summary", {})
-    prob = summary.get("primary_risk_probability")
-    
-    # Base response template
-    result = {
-        "transaction_id": tid,
-        "decision": "REVIEW",
-        "decision_reason": "Default safety fallback.",
-        "primary_risk_probability": prob,
-        "confidence_in_probability": summary.get("confidence_in_probability", "UNKNOWN"),
-        "blocking_guardrail_status": "NOT_EVALUATED",
-        "policy_metadata": {
-            "allow_threshold": policy.allow_threshold,
-            "block_threshold": policy.block_threshold
+    reason = {
+        "decision": decision,
+        "calibrated_risk": calibrated_risk,
+        "thresholds": {
+            "review": policy.t_review,
+            "block": policy.t_block
         },
-        "evidence_summary": summary,
-        "conflicting_evidence": fusion_result.get("evidence_conflict", {})
+        "model_evidence": fusion_result.get("model_evidence", []) if fusion_result else [],
+        "rule_evidence": fusion_result.get("rule_evidence", []) if fusion_result else [],
+        "behavioral_evidence": fusion_result.get("behavioral_evidence", []) if fusion_result else [],
+        "data_quality_evidence": fusion_result.get("data_quality_evidence", []) if fusion_result else []
     }
     
-    # 2. Validate Probability
-    if prob is None or not isinstance(prob, (float, int)) or math.isnan(prob) or not (0.0 <= prob <= 1.0):
-        result["decision"] = "REVIEW"
-        result["decision_reason"] = "Invalid or unavailable probability input. Failsafe to REVIEW."
-        return result
-        
-    conf = summary.get("confidence_in_probability")
-    
-    # 3. Decision Logic
-    if prob < policy.allow_threshold:
-        # ALLOW PATH
-        conflict = fusion_result.get("evidence_conflict", {}).get("has_conflict", False)
-        
-        if conflict:
-            # Phase 09 flags conflicts when probability is low but contextual severity is HIGH.
-            # However, because `repeated_fraud` triggers on 99% of validations, we must
-            # prevent this single weak signal from escalating everything to REVIEW.
-            if _has_independent_blocking_evidence(fusion_result.get("rule_evidence", {})):
-                result["decision"] = "REVIEW"
-                result["decision_reason"] = "Model risk is below ALLOW threshold, but severe independent evidence conflict detected. Escalate to REVIEW."
-            else:
-                result["decision"] = "ALLOW"
-                result["decision_reason"] = f"Validated model risk ({prob:.4f}) is safely below the ALLOW threshold ({policy.allow_threshold:.4f}). Conflict overridden due to lack of independent corroborating evidence."
-        else:
-            result["decision"] = "ALLOW"
-            result["decision_reason"] = f"Validated model risk ({prob:.4f}) is safely below the ALLOW threshold ({policy.allow_threshold:.4f})."
-            
-    elif prob >= policy.block_threshold:
-        # BLOCK PATH requires passing Guardrails
-        if conf not in ["HIGH", "MEDIUM"]:
-            result["decision"] = "REVIEW"
-            result["decision_reason"] = "Model risk exceeds BLOCK threshold, but confidence is too low (missing data). Escalate to REVIEW."
-            result["blocking_guardrail_status"] = "FAILED_LOW_CONFIDENCE"
-            
-        elif not _has_independent_blocking_evidence(fusion_result.get("rule_evidence", {})):
-            result["decision"] = "REVIEW"
-            result["decision_reason"] = "Model risk exceeds BLOCK threshold, but lacks independent corroborating evidence (e.g. only relies on repeated_fraud). Escalate to REVIEW."
-            result["blocking_guardrail_status"] = "FAILED_LACK_OF_INDEPENDENT_EVIDENCE"
-            
-        else:
-            result["decision"] = "BLOCK"
-            result["decision_reason"] = f"Validated model risk ({prob:.4f}) exceeds BLOCK threshold ({policy.block_threshold:.4f}) AND independent corroborating evidence guardrail passed."
-            result["blocking_guardrail_status"] = "PASSED"
-            
-    else:
-        # REVIEW PATH (Middle Band)
-        result["decision"] = "REVIEW"
-        result["decision_reason"] = f"Model risk ({prob:.4f}) falls within the REVIEW operating region [{policy.allow_threshold:.4f}, {policy.block_threshold:.4f}]."
-        
-    return result
+    return {
+        "decision": decision,
+        "decision_reason": reason
+    }

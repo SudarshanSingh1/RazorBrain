@@ -5,7 +5,6 @@ SHAP-based model explainability for RazorBrain fraud models.
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any
 
 import numpy as np
@@ -78,7 +77,6 @@ def explain_batch(
     
     X_proc = scaler.transform(X) if scaler else X
     
-    t0 = time.time()
     shap_values = explainer.shap_values(X_proc)
     
     # SHAP LinearExplainer and some TreeExplainers return lists for multi-class/binary
@@ -88,8 +86,6 @@ def explain_batch(
         shap_values_pos = shap_values[1] if len(shap_values) > 1 else shap_values[0]
     else:
         shap_values_pos = shap_values
-        
-    compute_time = time.time() - t0
     
     # Base expected value
     expected_value = explainer.expected_value

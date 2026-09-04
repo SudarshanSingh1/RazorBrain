@@ -21,3 +21,15 @@ export default api;
 export const getTrends = () => api.get('/dashboard/trends');
 export const getProbabilityAmount = () => api.get('/dashboard/probability-amount');
 export const getShapIntelligence = () => api.get('/dashboard/shap-intelligence');
+
+export const recordFeedback = (assessmentId: string, groundTruth: 'FRAUD' | 'LEGITIMATE') => {
+  return api.post(`/transactions/${assessmentId}/feedback`, {
+    ground_truth: groundTruth,
+    label_source: 'MANUAL_REVIEW'
+  });
+};
+export const getOperationalAnalytics = () => api.get('/dashboard/operational-analytics');
+export const simulateReviewCapacity = (params: any) => api.post('/dashboard/review-capacity/simulate', params);
+export const getDriftMonitoring = (window_hours: number) => api.get(`/dashboard/drift?window_hours=${window_hours}`);
+
+export const getServingTransactionDetail = (id: string) => api.get(`/razorpay/test/investigate/${id}`);

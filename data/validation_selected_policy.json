@@ -1,0 +1,27 @@
+{
+  "model_id": "MODEL_C_ENGINEERED_PLUS_RAW",
+  "calibration_method": "PLATT",
+  "capacity_target": 0.05,
+  "policy_status": "VALIDATION_SELECTED",
+  "created_at": "2026-09-04T06:58:13.200195+00:00",
+  "cost_parameters": {
+    "C_FN": 100.0,
+    "C_FP_BLOCK": 15.0,
+    "C_FP_REVIEW": 5.0,
+    "C_REVIEW": 2.0
+  },
+  "optimization_dataset": "validation_eval_split_chronological",
+  "t_review": 0.1258312175148087,
+  "t_block": 0.31250551864633047,
+  "cost": 90283.0,
+  "review_pct": 0.04998758212729448,
+  "stats": {
+    "fn_count": 664,
+    "fp_review": 1860,
+    "fp_block": 677,
+    "review_count": 2214,
+    "block_count": 1108,
+    "allow_count": 40969,
+    "fraud_caught": 785
+  }
+}

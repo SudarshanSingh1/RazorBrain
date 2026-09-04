@@ -1,7 +1,7 @@
 """
 Baseline Fraud Classification Model for RazorBrain.
 
-Provides a reproducible, simple Logistic Regression baseline to establish 
+Provides a reproducible, simple XGBoost baseline to establish 
 a performance floor before introducing complex non-linear models.
 """
 
@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     precision_score,
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def train_baseline(X_train: pd.DataFrame, y_train: pd.Series, random_state: int = 42) -> dict[str, Any]:
     """
-    Train a baseline Logistic Regression model on the provided training set.
+    Train a baseline XGBoost model on the provided training set.
     
     Parameters
     ----------
@@ -47,7 +47,7 @@ def train_baseline(X_train: pd.DataFrame, y_train: pd.Series, random_state: int 
     """
     logger.info("Training baseline model on %d samples", len(X_train))
     
-    # Logistic Regression requires scaled features.
+    # XGBoost requires scaled features.
     # We fit the scaler strictly on the training set to prevent leakage.
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_train)
@@ -55,10 +55,12 @@ def train_baseline(X_train: pd.DataFrame, y_train: pd.Series, random_state: int 
     # We use class_weight='balanced' because fraud is a severe minority class
     # and we want the baseline to naturally attempt to capture it without 
     # requiring manual threshold tuning out of the gate.
-    model = LogisticRegression(
-        class_weight='balanced',
+    model = XGBClassifier(
+        n_estimators=100,
+        max_depth=3,
+        learning_rate=0.05,
         random_state=random_state,
-        max_iter=1000,
+        eval_metric='logloss'
     )
     model.fit(X_scaled, y_train)
     

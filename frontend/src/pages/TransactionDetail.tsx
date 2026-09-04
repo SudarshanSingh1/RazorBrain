@@ -1,31 +1,77 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getTransactionDetail } from '../api';
+import { getTransactionDetail, getServingTransactionDetail, recordFeedback } from '../api';
 import { ArrowLeft, ShieldCheck, AlertTriangle, Ban, AlertCircle, Cpu, FileText, Activity, Layers, CheckCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import ServingTransactionDetail from './ServingTransactionDetail';
 
 export default function TransactionDetail() {
   const { id } = useParams<{ id: string }>();
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState<'FRAUD' | 'LEGITIMATE' | null>(null);
+
+  const handleFeedback = async (groundTruth: 'FRAUD' | 'LEGITIMATE') => {
+    setSubmittingFeedback(true);
+    setFeedbackError(null);
+    setFeedbackSuccess(null);
+    try {
+      const res = await recordFeedback(id!, groundTruth);
+      setData((prev: any) => ({
+        ...prev,
+        ground_truth: res.data.ground_truth,
+        label_source: res.data.label_source,
+        evaluation_outcome: res.data.evaluation_outcome,
+        labeled_at: res.data.labeled_at
+      }));
+      setFeedbackSuccess(`Successfully recorded ${groundTruth} as ground truth.`);
+      setShowConfirm(null);
+    } catch (err: any) {
+      setFeedbackError(err.response?.data?.detail || err.message || 'Failed to submit feedback.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | boolean>(false);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    getTransactionDetail(id)
-      .then(res => {
-        setData(res.data);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError(true);
-        setLoading(false);
-      });
+    const isServing = id.includes('pay_') || id.startsWith('order_');
+    
+    if (isServing) {
+      getServingTransactionDetail(id)
+        .then(res => {
+          setData({ ...res.data, isServing: true });
+          setLoading(false);
+        })
+        .catch(err => {
+          setError(err.response?.data?.detail || err.message || "Failed to load serving assessment.");
+          setLoading(false);
+        });
+    } else {
+      getTransactionDetail(id)
+        .then(res => {
+          setData({ ...res.data, isServing: false });
+          setLoading(false);
+        })
+        .catch(err => {
+          setError(err.response?.data?.detail || err.message || "Unable to load investigation details.");
+          setLoading(false);
+        });
+    }
   }, [id]);
 
   if (loading) return <div className="text-slate-400 animate-pulse p-6">Loading assessment details...</div>;
-  if (error || !data) return <div className="text-red-400 border border-red-900 bg-red-950/20 p-4 rounded-md m-6">Unable to load investigation details.</div>;
+  if (error || !data) return <div className="text-red-400 border border-red-900 bg-red-950/20 p-4 rounded-md m-6">{typeof error === 'string' ? error : "Unable to load investigation details."}</div>;
+
+  if (data.isServing) {
+    return <ServingTransactionDetail data={data} />;
+  }
 
   const {
     assessment_id, transaction_id, timestamp, amount, customer_id, merchant_id, payment_method,
@@ -162,7 +208,112 @@ export default function TransactionDetail() {
             </p>
           </div>
           
+          
+          {/* F. HUMAN REVIEW / FEEDBACK */}
+          {decision === 'REVIEW' && (
+            <div className="bg-[#0f172a] border border-blue-900/30 shadow-blue-900/5 p-6 rounded-xl shadow-sm mb-6">
+              
+              {data.review_priority && (
+                <div className="mb-6 pb-6 border-b border-slate-800">
+                  <h2 className="text-sm font-semibold text-amber-500 uppercase tracking-wider flex items-center gap-2 mb-3">
+                    <AlertTriangle size={16}/> Operational Review Priority
+                  </h2>
+                  <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800/80">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            data.review_priority.tier === 'CRITICAL' ? 'bg-red-900/40 text-red-400' :
+                            data.review_priority.tier === 'HIGH' ? 'bg-orange-900/40 text-orange-400' :
+                            'bg-blue-900/40 text-blue-400'
+                          }`}>
+                            {data.review_priority.tier}
+                          </span>
+                        </div>
+                        <ul className="list-disc pl-5 text-sm text-slate-300 space-y-1">
+                          {data.review_priority.reasons.map((r: string, idx: number) => (
+                            <li key={idx}>{r}</li>
+                          ))}
+                        </ul>
+                        <p className="text-xs text-slate-500 mt-3">
+                          This priority affects review ordering only. It does not change the RazorBrain decision.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between mb-4">
+
+                <h2 className="text-sm font-semibold text-blue-400 uppercase tracking-wider flex items-center gap-2"><CheckCircle size={16}/> Human Review Outcome</h2>
+              </div>
+              
+              {data.ground_truth ? (
+                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div><span className="text-slate-500 block text-xs">Ground Truth</span><span className={`font-semibold ${data.ground_truth === 'FRAUD' ? 'text-red-400' : 'text-emerald-400'}`}>{data.ground_truth}</span></div>
+                    <div><span className="text-slate-500 block text-xs">Source</span><span className="text-slate-300">{data.label_source}</span></div>
+                    <div><span className="text-slate-500 block text-xs">Evaluation</span><span className="text-slate-300">{data.evaluation_outcome}</span></div>
+                    <div><span className="text-slate-500 block text-xs">Labeled At</span><span className="text-slate-300">{new Date(data.labeled_at).toLocaleString()}</span></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-400">
+                    Recording this outcome adds ground-truth feedback for evaluation. It does not change the original RazorBrain decision.
+                  </p>
+                  
+                  {feedbackError && <div className="text-red-400 text-sm bg-red-950/20 p-3 rounded border border-red-900">{feedbackError}</div>}
+                  {feedbackSuccess && <div className="text-emerald-400 text-sm bg-emerald-950/20 p-3 rounded border border-emerald-900">{feedbackSuccess}</div>}
+
+                  {!showConfirm ? (
+                    <div className="flex gap-4">
+                      <button 
+                        onClick={() => setShowConfirm('FRAUD')}
+                        disabled={submittingFeedback}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50"
+                      >
+                        Confirm Fraud
+                      </button>
+                      <button 
+                        onClick={() => setShowConfirm('LEGITIMATE')}
+                        disabled={submittingFeedback}
+                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50"
+                      >
+                        Confirm Legitimate
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg">
+                      <p className="text-slate-300 text-sm mb-4">
+                        You are about to record <strong className={showConfirm === 'FRAUD' ? 'text-red-400' : 'text-emerald-400'}>{showConfirm}</strong> as the ground-truth outcome for this assessment. This will be used in evaluation analytics and cannot currently be changed.
+                      </p>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={() => handleFeedback(showConfirm)}
+                          disabled={submittingFeedback}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 text-sm"
+                        >
+                          {submittingFeedback ? 'Submitting...' : 'Confirm'}
+                        </button>
+                        <button 
+                          onClick={() => setShowConfirm(null)}
+                          disabled={submittingFeedback}
+                          className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* E. AI / EXPLANATION SECTION */}
+
           <div className="bg-[#0f172a] border border-indigo-900/30 shadow-indigo-900/5 p-6 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-2"><Cpu size={16}/> Engine Explanation</h2>

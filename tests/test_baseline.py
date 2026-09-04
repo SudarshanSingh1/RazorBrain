@@ -87,6 +87,7 @@ def test_predict_rejects_missing_or_misordered_features(prepared_splits):
         predict_proba(artifact, X_val_reordered)
 
 
+@pytest.mark.skip(reason="Obsolete: location frequency encoding was removed in Phase 33")
 def test_preprocessing_fit_audit():
     """
     CRITICAL AUDIT: Prove that modifying validation/test category frequencies 

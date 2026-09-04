@@ -1,0 +1,160 @@
+{
+    "model_track": "RAZORPAY_SERVING_MODEL",
+    "policy_version": "1.0",
+    "policy_status": "VALIDATION_SELECTED",
+    "calibrated_artifact": "data/razorpay_serving_model_calibrated.joblib",
+    "calibrated_artifact_hash": "1aada82e6f1af13bcada372eb02ec312",
+    "threshold_review": 0.1213,
+    "threshold_block": 0.2053,
+    "cost_assumptions": {
+        "C_FN": 100,
+        "C_FP_BLOCK": 15,
+        "C_FP_REVIEW": 5,
+        "C_REVIEW": 2
+    },
+    "cost_assumption_note": "These are explicit operational assumptions, not measured Razorpay financial costs.",
+    "review_capacity_target": "5%",
+    "selection_methodology": "Minimum total cost under 5% review capacity constraint on VALIDATION set",
+    "optimization_dataset": "data/razorpay_serving_dataset/validation.csv",
+    "optimization_dataset_rows": 88581,
+    "optimization_dataset_fraud": 3042,
+    "selected_policy_stats": {
+        "total_cost": 238543.0,
+        "avg_cost_per_txn": 2.6929364084848895,
+        "review_rate": 0.04520156692744494,
+        "block_rate": 0.022137930255923956,
+        "fraud_review": 524,
+        "fraud_block": 592,
+        "fraud_allow": 1926,
+        "fraud_total_caught": 1116,
+        "fraud_missed": 1926,
+        "legit_review": 3480,
+        "legit_block": 1369,
+        "precision_review_block": 0.1870913663034367,
+        "recall_review_block": 0.3668639053254438,
+        "precision_block": 0.3018867924528302,
+        "recall_block": 0.1946088099934254
+    },
+    "all_results": {
+        "base": {
+            "unconstrained": {
+                "t_review": 0.0797,
+                "t_block": 0.2322,
+                "total_cost": 231276.0,
+                "avg_cost_per_txn": 2.6108984996782607,
+                "review_rate": 0.07832379404161163,
+                "block_rate": 0.009742495569027218,
+                "fraud_review": 920,
+                "fraud_block": 329,
+                "fraud_allow": 1793,
+                "fraud_total_caught": 1249,
+                "fraud_missed": 1793,
+                "legit_review": 6018,
+                "legit_block": 534,
+                "precision_review_block": 0.16010767850275606,
+                "recall_review_block": 0.41058514135437213,
+                "precision_block": 0.38122827346465815,
+                "recall_block": 0.10815253122945431
+            },
+            "capacity_constrained": {
+                "1pct": {
+                    "t_review": 0.1246,
+                    "t_block": 0.1385,
+                    "total_cost": 256142.0,
+                    "avg_cost_per_txn": 2.8916133256567433,
+                    "review_rate": 0.008478116074553234,
+                    "block_rate": 0.041002020749370635,
+                    "fraud_review": 111,
+                    "fraud_block": 836,
+                    "fraud_allow": 2095,
+                    "fraud_total_caught": 947,
+                    "fraud_missed": 2095,
+                    "legit_review": 640,
+                    "legit_block": 2796,
+                    "precision_review_block": 0.216062057951175,
+                    "recall_review_block": 0.31130834976988825,
+                    "precision_block": 0.2301762114537445,
+                    "recall_block": 0.27481919789612097
+                },
+                "2pct": {
+                    "t_review": 0.1385,
+                    "t_block": 0.2053,
+                    "total_cost": 251612.0,
+                    "avg_cost_per_txn": 2.8404736907463226,
+                    "review_rate": 0.018864090493446676,
+                    "block_rate": 0.022137930255923956,
+                    "fraud_review": 244,
+                    "fraud_block": 592,
+                    "fraud_allow": 2206,
+                    "fraud_total_caught": 836,
+                    "fraud_missed": 2206,
+                    "legit_review": 1427,
+                    "legit_block": 1369,
+                    "precision_review_block": 0.2301762114537445,
+                    "recall_review_block": 0.27481919789612097,
+                    "precision_block": 0.3018867924528302,
+                    "recall_block": 0.1946088099934254
+                },
+                "5pct": {
+                    "t_review": 0.1213,
+                    "t_block": 0.2053,
+                    "total_cost": 238543.0,
+                    "avg_cost_per_txn": 2.6929364084848895,
+                    "review_rate": 0.04520156692744494,
+                    "block_rate": 0.022137930255923956,
+                    "fraud_review": 524,
+                    "fraud_block": 592,
+                    "fraud_allow": 1926,
+                    "fraud_total_caught": 1116,
+                    "fraud_missed": 1926,
+                    "legit_review": 3480,
+                    "legit_block": 1369,
+                    "precision_review_block": 0.1870913663034367,
+                    "recall_review_block": 0.3668639053254438,
+                    "precision_block": 0.3018867924528302,
+                    "recall_block": 0.1946088099934254
+                },
+                "10pct": {
+                    "t_review": 0.0797,
+                    "t_block": 0.2322,
+                    "total_cost": 231276.0,
+                    "avg_cost_per_txn": 2.6108984996782607,
+                    "review_rate": 0.07832379404161163,
+                    "block_rate": 0.009742495569027218,
+                    "fraud_review": 920,
+                    "fraud_block": 329,
+                    "fraud_allow": 1793,
+                    "fraud_total_caught": 1249,
+                    "fraud_missed": 1793,
+                    "legit_review": 6018,
+                    "legit_block": 534,
+                    "precision_review_block": 0.16010767850275606,
+                    "recall_review_block": 0.41058514135437213,
+                    "precision_block": 0.38122827346465815,
+                    "recall_block": 0.10815253122945431
+                }
+            }
+        },
+        "sensitivity_at_5pct_capacity": {
+            "base": {
+                "t_review": 0.1213,
+                "t_block": 0.2053,
+                "review_rate": 0.04520156692744494,
+                "total_cost": 238543.0
+            },
+            "high_fn": {
+                "t_review": 0.0978,
+                "t_block": 0.1863,
+                "review_rate": 0.04964947336336235,
+                "total_cost": 426541.0
+            },
+            "high_fp_block": {
+                "t_review": 0.1246,
+                "t_block": 0.2322,
+                "review_rate": 0.03973764125489665,
+                "total_cost": 247070.0
+            }
+        }
+    },
+    "created_at": "2026-09-04T09:13:58.433057+00:00"
+}

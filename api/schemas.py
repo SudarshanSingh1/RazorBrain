@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, constr, ConfigDict
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List
 
 class TransactionRequest(BaseModel):
     transaction_id: str = Field(..., max_length=100, description="Unique identifier for the transaction")
@@ -64,3 +64,45 @@ class ErrorDetail(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorDetail
+
+class RecordFeedbackRequest(BaseModel):
+    ground_truth: str = Field(..., pattern="^(FRAUD|LEGITIMATE)$", description="Ground truth outcome")
+    label_source: str = Field(..., max_length=50, description="Source of the label e.g., MANUAL_REVIEW, CHARGEBACK")
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    model_config = ConfigDict(extra="forbid")
+
+class EvaluationFeedbackResponse(BaseModel):
+    assessment_id: str
+    transaction_id: str
+    ground_truth: str
+    label_source: str
+    evaluation_outcome: str
+    labeled_at: str
+
+    model_config = ConfigDict(extra="forbid")
+
+class AnalyticsMetricsResponse(BaseModel):
+    labeled_volume: int
+    fraud_labels: int
+    legitimate_labels: int
+    tp: int
+    fp: int
+    tn: int
+    fn: int
+    unresolved: int
+    precision: str
+    recall: str
+    f1: str
+    specificity: str
+    fpr: str
+    fnr: str
+
+class SimulationRequest(BaseModel):
+    horizon_hours: int = Field(24, ge=1, le=720, description="Simulation horizon in hours")
+    capacity_per_hour: float = Field(..., ge=0.0, description="Assumed review capacity per hour")
+    arrival_rate_per_hour: Optional[float] = Field(None, ge=0.0, description="Assumed arrival rate per hour")
+    use_observed_arrival: bool = Field(False, description="Use actual observed arrival rate")
+    initial_backlog: int = Field(0, ge=0, description="Starting backlog")
+
+    model_config = ConfigDict(extra="forbid")

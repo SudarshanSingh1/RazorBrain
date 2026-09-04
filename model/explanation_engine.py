@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,9 @@ class DeterministicFallbackProvider(ExplanationProvider):
                     evidence_references.append(r.get('rule_id'))
                     key_factors.append(f"Rule: {r.get('rule_id')} triggered.")
             
-        model_ev = summary.get("model_evidence", {}) if summary else decision_result.get("model_evidence", {})
+        model_ev = decision_result.get("model_evidence", {})
+        if not model_ev and summary:
+            model_ev = summary.get("model_evidence", {})
         if model_ev:
             pos_shap = model_ev.get("top_positive_contributors", [])
             if pos_shap:

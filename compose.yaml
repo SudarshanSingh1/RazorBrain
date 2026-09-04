@@ -9,6 +9,10 @@ services:
       - RAZORBRAIN_API_KEY=${RAZORBRAIN_API_KEY:-dev-api-key-123}
       - RAZORBRAIN_DB_PATH=/app/data_store/razorbrain_production.db
       - RAZORBRAIN_CORS_ORIGINS=*
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - RAZORPAY_MODE=${RAZORPAY_MODE:-test}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET}
     volumes:
       - razorbrain_db:/app/data_store
     healthcheck:
@@ -25,6 +29,7 @@ services:
       args:
         - VITE_API_KEY=${RAZORBRAIN_API_KEY:-dev-api-key-123}
         - VITE_API_URL=http://localhost:8000
+        - VITE_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
     ports:
       - "8080:80"
     depends_on:

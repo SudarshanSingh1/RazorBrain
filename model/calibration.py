@@ -5,7 +5,6 @@ Calibration evaluation for RazorBrain fraud models.
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any
 
 import numpy as np
@@ -19,14 +18,18 @@ def fit_calibration(
     model_artifact: dict[str, Any], 
     X_calib: pd.DataFrame, 
     y_calib: pd.Series, 
-    method: str = "isotonic"
+    method: str = "none"
 ) -> dict[str, Any]:
-    """
-    Fit a calibration model (e.g., Isotonic Regression) 
-    using the base model's predictions on the calibration dataset.
-    """
+    if method == "none":
+        return {
+            "calibrator": None,
+            "method": method,
+            "feature_names": model_artifact["feature_names"],
+            "base_model_artifact": model_artifact
+        }
     if method != "isotonic":
-        raise ValueError("Only 'isotonic' is currently supported in this direct implementation.")
+        raise ValueError("Only 'isotonic' or 'none' is currently supported in this direct implementation.")
+
         
     base_model = model_artifact["model"]
     scaler = model_artifact.get("scaler")
@@ -47,20 +50,18 @@ def fit_calibration(
 
 
 def predict_calibrated_proba(calibration_artifact: dict[str, Any], X: pd.DataFrame) -> np.ndarray:
-    """
-    Generate calibrated probabilities using the fitted calibrator.
-    """
     if list(X.columns) != calibration_artifact["feature_names"]:
         raise ValueError("Feature columns do not match the expected training order.")
         
     calibrator = calibration_artifact["calibrator"]
     base_model_artifact = calibration_artifact["base_model_artifact"]
     
-    # Get raw probabilities
     from model.baseline import predict_proba as get_raw_proba
     y_prob_raw = get_raw_proba(base_model_artifact, X)
     
-    # Transform to calibrated probabilities
+    if calibrator is None:
+        return y_prob_raw
+    
     return calibrator.predict(y_prob_raw)
 
 

@@ -1,6 +1,5 @@
 import sqlite3
 from contextlib import contextmanager
-import json
 import logging
 
 logger = logging.getLogger(__name__)

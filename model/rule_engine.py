@@ -12,7 +12,6 @@ import logging
 from typing import Any
 
 import pandas as pd
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +76,7 @@ class VelocityNewDeviceRule(Rule):
     def evaluate(self, txn: pd.Series, thresholds: dict[str, float]) -> dict[str, Any]:
         thresh = thresholds["txns_last_24h_p99"]
         txns = txn["txns_last_24h"]
-        new_dev = txn["new_device_flag"]
+        new_dev = txn.get("new_device_flag", pd.NA)
         
         if pd.isna(txns) or pd.isna(new_dev):
             return self.format_result("UNAVAILABLE")
@@ -99,7 +98,7 @@ class DeviationNewLocationRule(Rule):
     def evaluate(self, txn: pd.Series, thresholds: dict[str, float]) -> dict[str, Any]:
         thresh = thresholds["amount_deviation_p99"]
         dev = txn["amount_deviation"]
-        new_loc = txn["new_location_flag"]
+        new_loc = txn.get("new_location_flag", pd.NA)
         
         if pd.isna(dev) or pd.isna(new_loc) or txn.get("location_is_missing") == 1:
             return self.format_result("UNAVAILABLE")
