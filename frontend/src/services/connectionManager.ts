@@ -100,7 +100,6 @@ export class ConnectionManager {
     this.updateState({ status: 'CONNECTING', errorType: null, errorMessage: null });
 
     try {
-      // Step 1: Health check (lightweight liveness)
       const healthResponse = await this.fetchWithTimeout(`${this.baseUrl}/health`, 5000);
       
       if (!healthResponse.ok) {
@@ -109,36 +108,15 @@ export class ConnectionManager {
         }
         return this.goState('OFFLINE', 'SERVER_ERROR', `Health check failed with status ${healthResponse.status}`);
       }
-
-      // Step 2: Readiness check (can serve traffic?)
-      const readyResponse = await this.fetchWithTimeout(`${this.baseUrl}/ready`, 5000);
       
-      if (readyResponse.ok) {
-        const readyData = await readyResponse.json();
-        const checks = readyData.checks || null;
-        
-        if (readyData.status === 'DEGRADED') {
-          return this.goState('DEGRADED', 'READINESS_FAILURE', 'Backend is running but some subsystems are degraded.', checks);
+      try {
+        const healthData = await healthResponse.json();
+        if (healthData && (healthData.status === 'ok' || healthData.status === 'online')) {
+          return this.goState('ONLINE', null, null, null);
         }
-        
-        return this.goState('ONLINE', null, null, checks);
-      } else {
-        // Health OK but readiness failed — DEGRADED
-        let detail = 'Backend is running but not fully ready to serve traffic.';
-        try {
-          const errData = await readyResponse.json();
-          if (errData.detail && typeof errData.detail === 'object') {
-            detail = errData.detail.status || detail;
-            return this.goState('DEGRADED', 'READINESS_FAILURE', detail, errData.detail.checks || null);
-          } else if (typeof errData.detail === 'string') {
-            detail = errData.detail;
-          }
-        } catch {
-          // ignore parse errors
-        }
-        return this.goState('DEGRADED', 'READINESS_FAILURE', detail);
-      }
+      } catch (e) {}
 
+      return this.goState('ONLINE', null, null, null);
     } catch (error) {
       const errorType = this.classifyError(error);
       const message = errorType === 'TIMEOUT'

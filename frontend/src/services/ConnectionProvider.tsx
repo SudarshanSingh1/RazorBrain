@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { ConnectionManager, type ConnectionState, type ConnectionStatus } from './connectionManager';
+import { API_BASE_URL } from './api';
 
 interface ConnectionContextValue {
   /** Current connection status */
@@ -14,7 +15,6 @@ interface ConnectionContextValue {
 
 const ConnectionContext = createContext<ConnectionContextValue | null>(null);
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://razorbrain.onrender.com';
 
 export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<ConnectionState>({

@@ -4,7 +4,7 @@ import axios from 'axios';
 // Development: Set VITE_API_URL=http://localhost:8000 in .env
 // Production:  Set VITE_API_URL=https://your-backend.onrender.com in Render env vars
 // The fallback to localhost:8000 is for development convenience only.
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://razorbrain.onrender.com';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://razorbrain.onrender.com';
 
 if (!import.meta.env.VITE_API_URL) {
   console.warn(
@@ -22,22 +22,37 @@ const defaultApiKey = '9362a0101d51b5e4c4f8ca0d252f740dcb8112651cd90c149c3747d09
 const apiKey = import.meta.env.VITE_API_KEY || defaultApiKey;
 api.defaults.headers.common['X-API-Key'] = apiKey;
 
-// ── Response Interceptor for Connection Status ──────────────────────────────
-// Detects network failures and triggers connection status updates
+// ── Response Interceptor for Connection Status and Logging ─────────────
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If request succeeds, connection is good
+    if (typeof window !== 'undefined' && (window as any).__RAZORBRAIN_CONNECTION_MANAGER__) {
+      (window as any).__RAZORBRAIN_CONNECTION_MANAGER__.notifyRequestSucceeded();
+    }
+    return response;
+  },
   (error) => {
-    // Don't trigger connection checks for cancelled requests
-    if (axios.isCancel(error)) {
-      return Promise.reject(error);
+    // Log clear error details in development
+    if (import.meta.env.DEV) {
+      if (error.response) {
+        console.error(
+          `[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url} | Status: ${error.response.status} | Message:`, 
+          error.response.data?.error?.message || error.message
+        );
+      } else if (error.request) {
+        console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url} | Network Error or Timeout`);
+      }
+    } else {
+      // Minimal production logging
+      console.error('[API Error] Request failed');
     }
 
-    // Detect connection failures (no response = network error or timeout)
-    if (!error.response && error.code !== 'ERR_CANCELED') {
-      // Dispatch a custom event that ConnectionManager can listen to
-      window.dispatchEvent(new CustomEvent('razorbrain:api-offline', { detail: error }));
+    // Notify connection manager of failure (will trigger health check)
+    if (typeof window !== 'undefined' && (window as any).__RAZORBRAIN_CONNECTION_MANAGER__) {
+      (window as any).__RAZORBRAIN_CONNECTION_MANAGER__.notifyRequestFailed(error);
     }
-
+    
     return Promise.reject(error);
   }
 );
