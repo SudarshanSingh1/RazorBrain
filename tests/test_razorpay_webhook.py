@@ -2,7 +2,7 @@ import pytest
 import hmac
 import hashlib
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from api.app import app

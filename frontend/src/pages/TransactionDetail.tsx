@@ -1,3 +1,4 @@
+import { safeFormatDate } from "../utils/date";
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTransactionDetail as getTransaction, recordFeedback } from '../api';
@@ -95,9 +96,7 @@ export default function TransactionDetail() {
     }
   };
 
-  const shapData = model_evidence && Object.keys(model_evidence.feature_contributions || {}).length > 0 
-    ? Object.entries(model_evidence.feature_contributions).map(([k, v]) => ({ name: k, contribution: v })).sort((a,b) => Math.abs(b.contribution as number) - Math.abs(a.contribution as number))
-    : [];
+  const shapData = Array.isArray(model_evidence) && model_evidence.length > 0 ? model_evidence.map((m: any) => ({ name: m.feature_name, contribution: m.shap_contribution })).sort((a: any, b: any) => Math.abs(b.contribution) - Math.abs(a.contribution)) : [];
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -146,7 +145,7 @@ export default function TransactionDetail() {
             <div className="pt-4 border-t border-border-subtle text-[12px] flex flex-col gap-2 text-text-secondary">
               <div className="flex justify-between">
                 <span>Timestamp</span>
-                <span className="font-mono">{new Date(timestamp).toLocaleString()}</span>
+                <span className="font-mono">{safeFormatDate(timestamp)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Location</span>
@@ -171,7 +170,7 @@ export default function TransactionDetail() {
                     <SearchCheck size={16} />
                     <span className="text-[13px] font-semibold tracking-wider uppercase">Feedback Recorded</span>
                   </div>
-                  <span className="font-mono text-[10px] text-text-muted">{new Date(feedback.timestamp).toLocaleString()}</span>
+                  <span className="font-mono text-[10px] text-text-muted">{safeFormatDate(feedback.timestamp)}</span>
                 </div>
                 <div className="flex justify-between text-[13px] mt-3">
                   <span className="text-text-secondary font-medium">Ground Truth:</span>
@@ -274,10 +273,10 @@ export default function TransactionDetail() {
                 <CardTitle icon={<FileText size={16}/>}>Rule Evidence</CardTitle>
               </CardHeader>
               <div className="space-y-2.5">
-                {!rule_evidence || rule_evidence.length === 0 ? (
+                {!rule_evidence || (rule_evidence || []).length === 0 ? (
                   <p className="text-text-muted text-[13px] py-4 italic border border-border-subtle border-dashed rounded-lg text-center bg-bg-card-secondary/50">No rules triggered.</p>
                 ) : (
-                  rule_evidence.map((rule: any, i: number) => {
+                  (rule_evidence || []).map((rule: any, i: number) => {
                     let variant: 'danger' | 'warning' | 'default' = 'default';
                     let iconColor = 'text-brand';
                     if (rule.severity === 'HIGH') {

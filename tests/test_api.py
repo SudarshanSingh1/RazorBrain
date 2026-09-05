@@ -3,9 +3,6 @@ import pytest
 from fastapi.testclient import TestClient
 import uuid
 import os
-import math
-import numpy as np
-from sklearn.linear_model import LogisticRegression
 
 from api.app import app
 from api.lifespan import app_state
@@ -35,7 +32,7 @@ def test_assess_valid_transaction():
             "merchant_id": "merch_y",
             "payment_method": "credit_card",
             "customer_account_age_days": 100,
-            "previous_transaction_count": 5, "previous_fraud_count": 0, "amount_deviation": 0.0, "is_new_customer": 0, "merchant_fraud_rate": 0.0, "is_new_merchant": 0, "txns_last_5min": 0, "txns_last_1h": 0, "txns_last_24h": 0, "customer_account_age_days": 100, "avg_customer_amount": 1.0
+            "previous_transaction_count": 5, "previous_fraud_count": 0, "amount_deviation": 0.0, "is_new_customer": 0, "merchant_fraud_rate": 0.0, "is_new_merchant": 0, "txns_last_5min": 0, "txns_last_1h": 0, "txns_last_24h": 0, "avg_customer_amount": 1.0
         }
         res = c.post("/transactions/assess", json=payload)
         assert res.status_code == 201
@@ -269,7 +266,7 @@ def test_ready():
 
 # 18. model/artifact initialization occurs once (Correction 2)
 def test_authoritative_model_is_logistic_regression():
-    with TestClient(app) as c:
+    with TestClient(app):
         model = app_state.model_artifact["model"]
         assert isinstance(model, __import__("xgboost").XGBClassifier), "Authoritative model MUST be XGBClassifier"
 

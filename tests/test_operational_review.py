@@ -45,7 +45,7 @@ def test_dashboard_review_queue_hides_resolved(mock_db):
     aid = f"assess_{uuid.uuid4()}"
     setup_fake_assessment(db_path, aid, "REVIEW")
     
-    resp = test_client.get(f"/dashboard/transactions?decision=REVIEW&unresolved_only=true&limit=100")
+    resp = test_client.get("/dashboard/transactions?decision=REVIEW&unresolved_only=true&limit=100")
     assert resp.status_code == 200
     
     initial_count = sum(1 for tx in resp.json()["data"] if tx["assessment_id"] == aid)
@@ -53,7 +53,7 @@ def test_dashboard_review_queue_hides_resolved(mock_db):
     
     test_client.post(f"/transactions/{aid}/feedback", json={"ground_truth": "LEGITIMATE", "label_source": "MANUAL_REVIEW"})
     
-    resp2 = test_client.get(f"/dashboard/transactions?decision=REVIEW&unresolved_only=true&limit=100")
+    resp2 = test_client.get("/dashboard/transactions?decision=REVIEW&unresolved_only=true&limit=100")
     final_count = sum(1 for tx in resp2.json()["data"] if tx["assessment_id"] == aid)
     assert final_count == 0
 

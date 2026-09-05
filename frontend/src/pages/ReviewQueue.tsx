@@ -1,3 +1,4 @@
+import { safeFormatDate } from '../utils/date';
 import { useEffect, useState } from 'react';
 import { getTransactions, getOperationalAnalytics } from '../api';
 import { useNavigate } from 'react-router-dom';
@@ -51,9 +52,7 @@ export default function ReviewQueue() {
       header: 'Timestamp',
       cell: (row) => (
         <span className="font-mono text-text-secondary">
-          {new Date(row.timestamp).toLocaleString(undefined, {
-            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
-          })}
+          {safeFormatDate(row.timestamp)}
         </span>
       )
     },

@@ -1,6 +1,4 @@
 import pytest
-import pandas as pd
-from model.real_feature_pipeline import RealFeaturePipeline
 from model.real_feature_contract import PRIMARY_REAL_FEATURE_SET
 import joblib
 

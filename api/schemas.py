@@ -26,7 +26,7 @@ class TransactionRequest(BaseModel):
     txns_last_24h: Optional[int] = Field(None)
     customer_account_age_days: Optional[float] = Field(None)
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, )
 
 class RuleEvidence(BaseModel):
     rule_id: str
@@ -70,7 +70,7 @@ class RecordFeedbackRequest(BaseModel):
     label_source: str = Field(..., max_length=50, description="Source of the label e.g., MANUAL_REVIEW, CHARGEBACK")
     notes: Optional[str] = Field(None, max_length=1000)
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, )
 
 class EvaluationFeedbackResponse(BaseModel):
     assessment_id: str
@@ -80,7 +80,7 @@ class EvaluationFeedbackResponse(BaseModel):
     evaluation_outcome: str
     labeled_at: str
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, )
 
 class AnalyticsMetricsResponse(BaseModel):
     labeled_volume: int
@@ -105,4 +105,4 @@ class SimulationRequest(BaseModel):
     use_observed_arrival: bool = Field(False, description="Use actual observed arrival rate")
     initial_backlog: int = Field(0, ge=0, description="Starting backlog")
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, )

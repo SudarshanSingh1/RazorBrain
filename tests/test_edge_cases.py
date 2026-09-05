@@ -1,4 +1,3 @@
-import pytest
 from fastapi.testclient import TestClient
 import math
 from api.app import app
@@ -64,14 +63,14 @@ def test_target_leakage_rejection():
         assert res.status_code in (400, 422) # Pydantic extra='forbid'
 
 def test_nan_infinity_safeguards():
-    with TestClient(app) as client:
+    with TestClient(app):
         # JSON standard doesn't support NaN directly, but FastAPI might parse literal NaN if not strict
         # Let's send a string that might be coerced, or bypass HTTP and test Pydantic directly
         from api.schemas import TransactionRequest
         from pydantic import ValidationError
         
         try:
-            req = TransactionRequest(
+            TransactionRequest(
                 transaction_id="EDGE-5",
                 timestamp="2023-10-27T10:00:00Z",
                 amount=math.nan,

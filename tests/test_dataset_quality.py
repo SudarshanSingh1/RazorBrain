@@ -59,7 +59,7 @@ class TestQualityGate:
     def test_quality_gate_passes(self, quality_report):
         failed = [c for c in quality_report["checks"] if c["status"] == "FAIL"]
         assert quality_report["passed"], (
-            f"Quality gate FAILED. Failures:\n"
+            "Quality gate FAILED. Failures:\n"
             + "\n".join(f"  [{c['name']}] {c['detail']}" for c in failed)
         )
 
@@ -189,7 +189,7 @@ class TestSignalDirectionality:
     def test_legitimate_transactions_can_have_new_device(self, dataset):
         """Legitimate users can use new devices — signal must not be deterministic."""
         legit_with_new_device = dataset[
-            (dataset["is_fraud"] == False) & (dataset["new_device_flag"] == True)
+            (dataset["is_fraud"] is False) & (dataset["new_device_flag"] is True)
         ]
         assert len(legit_with_new_device) > 0, (
             "No legitimate transactions with new_device_flag=True found. "
@@ -199,7 +199,7 @@ class TestSignalDirectionality:
     def test_fraudulent_transactions_can_have_known_device(self, dataset):
         """Fraudulent transactions can occur on known devices — signal must not be deterministic."""
         fraud_with_known_device = dataset[
-            (dataset["is_fraud"] == True) & (dataset["new_device_flag"] == False)
+            (dataset["is_fraud"] is True) & (dataset["new_device_flag"] is False)
         ]
         assert len(fraud_with_known_device) > 0, (
             "No fraudulent transactions with new_device_flag=False found. "
@@ -208,8 +208,8 @@ class TestSignalDirectionality:
 
     def test_legitimate_transactions_can_have_large_amounts(self, dataset):
         """High amounts are not exclusively fraudulent."""
-        legit = dataset[dataset["is_fraud"] == False]
-        fraud = dataset[dataset["is_fraud"] == True]
+        legit = dataset[dataset["is_fraud"] is False]
+        dataset[dataset["is_fraud"] is True]
         legit_high = legit[legit["amount"] > legit["amount"].quantile(0.9)]
         assert len(legit_high) > 0, (
             "No legitimate transactions in the top 10% of amounts — "
@@ -339,10 +339,10 @@ class TestHundredKScale:
             assert shortcut["status"] != "FAIL", shortcut["detail"]
 
     def test_100k_legit_can_have_new_device(self, dataset_100k):
-        count = ((dataset_100k["is_fraud"] == False) & (dataset_100k["new_device_flag"] == True)).sum()
+        count = ((dataset_100k["is_fraud"] is False) & (dataset_100k["new_device_flag"] is True)).sum()
         assert count > 0
 
     def test_100k_fraud_can_have_known_device(self, dataset_100k):
-        count = ((dataset_100k["is_fraud"] == True) & (dataset_100k["new_device_flag"] == False)).sum()
+        count = ((dataset_100k["is_fraud"] is True) & (dataset_100k["new_device_flag"] is False)).sum()
         assert count > 0
 

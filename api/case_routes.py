@@ -20,9 +20,6 @@ from api.case_service import (
     CaseServiceError,
     ConcurrencyConflictError,
     InvalidStateTransitionError,
-    VALID_PRIORITIES,
-    VALID_RESOLUTIONS,
-    VALID_STATUSES,
 )
 from api.security import get_api_key
 

@@ -1,4 +1,6 @@
+import { safeFormatDate } from '../utils/date';
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Zap,
   ShieldCheck,
@@ -65,24 +67,25 @@ const CARD_TYPES = [
 ];
 
 export default function ScoreTransaction() {
+  const navigate = useNavigate();
   const now = new Date();
   const defaultHour = String(now.getUTCHours());
   const defaultDow = String(now.getUTCDay() === 0 ? 6 : now.getUTCDay() - 1);
 
   const initialForm: FormData = {
     transaction_id: '',
-    amount: '2500',
-    customer_id: 'cust_live_01',
-    email: 'alex@example.com',
-    card_network: 'visa',
-    card_type: 'credit',
+    amount: '',
+    customer_id: '',
+    email: '',
+    card_network: '',
+    card_type: '',
     hour_of_day: defaultHour,
     day_of_week: defaultDow,
     is_new_customer: false,
-    previous_transaction_count: '6',
-    avg_customer_amount: '2200',
-    txns_last_1h: '1',
-    txns_last_24h: '3',
+    previous_transaction_count: '0',
+    avg_customer_amount: '0',
+    txns_last_1h: '0',
+    txns_last_24h: '0',
   };
 
   const [form, setForm] = useState<FormData>(initialForm);
@@ -258,6 +261,7 @@ export default function ScoreTransaction() {
         : parseFloat(form.avg_customer_amount || '0'),
       txns_last_1h: form.is_new_customer ? 0 : parseInt(form.txns_last_1h || '0', 10),
       txns_last_24h: form.is_new_customer ? 0 : parseInt(form.txns_last_24h || '0', 10),
+      include_explanation: true,
     };
 
     try {
@@ -292,7 +296,7 @@ export default function ScoreTransaction() {
           `API Error (${err.response.status}): ${err.response.statusText}`;
         setApiError(msg);
       } else if (err.request) {
-        setApiError('Prediction service is currently unavailable. Please verify backend is running on port 8000.');
+        setApiError('Prediction service is currently unavailable. Please check the API connection status.');
       } else {
         setApiError(err.message || 'An unexpected error occurred while scoring.');
       }
@@ -312,14 +316,14 @@ export default function ScoreTransaction() {
         amount: '1250',
         customer_id: 'cust_premium_44',
         email: 'priya.sharma@gmail.com',
-        card_network: 'visa',
+        card_network: '',
         card_type: 'debit',
         hour_of_day: '14',
         day_of_week: '2',
         is_new_customer: false,
         previous_transaction_count: '24',
         avg_customer_amount: '1150',
-        txns_last_1h: '1',
+        txns_last_1h: '0',
         txns_last_24h: '2',
       });
     } else if (preset === 'high') {
@@ -329,7 +333,7 @@ export default function ScoreTransaction() {
         customer_id: 'cust_anomaly_99',
         email: 'tempuser@unknown-disposable.com',
         card_network: 'mastercard',
-        card_type: 'credit',
+        card_type: '',
         hour_of_day: '3',
         day_of_week: '5',
         is_new_customer: false,
@@ -1110,6 +1114,57 @@ export default function ScoreTransaction() {
                   );
                 })()}
 
+                {/* SHAP EXPLANATION SECTION */}
+                {result.explanation && result.explanation.status === 'AVAILABLE' && (
+                  <div className="p-4 rounded-xl border border-border-subtle/80 bg-bg-card-secondary/40 space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-border-subtle/50">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={16} className="text-brand-bright" />
+                        <span className="text-[12px] uppercase font-bold tracking-wider text-text-primary">
+                          Why the Model Flagged This
+                        </span>
+                      </div>
+                      <Badge variant="default" className="text-[10px] font-mono px-2 py-0.5">
+                        TreeSHAP Explainer
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Top Positive Contributions (Increases Risk) */}
+                      <div className="space-y-2">
+                        <span className="text-[11.5px] font-semibold text-rose-400 uppercase tracking-wider block">
+                          Increases Risk Score
+                        </span>
+                        {result.explanation.top_positive.map((item: any, idx: number) => (
+                          <div key={idx} className="p-2.5 rounded-lg bg-bg-main/50 border border-rose-500/20 text-[12px] space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-text-primary">{item.feature}</span>
+                              <span className="font-mono text-[10.5px] text-rose-400">+{item.shap_value.toFixed(4)}</span>
+                            </div>
+                            <p className="text-[11.5px] text-text-muted">{item.description}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Top Negative Contributions (Decreases Risk) */}
+                      <div className="space-y-2">
+                        <span className="text-[11.5px] font-semibold text-emerald-400 uppercase tracking-wider block">
+                          Decreases Risk Score
+                        </span>
+                        {result.explanation.top_negative.map((item: any, idx: number) => (
+                          <div key={idx} className="p-2.5 rounded-lg bg-bg-main/50 border border-emerald-500/20 text-[12px] space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-text-primary">{item.feature}</span>
+                              <span className="font-mono text-[10.5px] text-emerald-400">{item.shap_value.toFixed(4)}</span>
+                            </div>
+                            <p className="text-[11.5px] text-text-muted">{item.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Expandable Decision Trace & Audit Log */}
                 <div className="border border-border-subtle/70 rounded-xl overflow-hidden bg-bg-card-secondary/30">
                   <button
@@ -1155,7 +1210,7 @@ export default function ScoreTransaction() {
                   <div className="p-2.5 rounded-lg bg-bg-card-secondary/60 border border-border-subtle/60">
                     <span className="text-text-muted block text-[11px] mb-0.5">Scored At (UTC)</span>
                     <span className="font-mono font-medium text-text-primary truncate block">
-                      {new Date(result.scored_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      {safeFormatDate(result.scored_at)}
                     </span>
                   </div>
 
@@ -1205,15 +1260,22 @@ export default function ScoreTransaction() {
                 </div>
 
                 {/* Score Another Transaction Action */}
-                <div className="pt-2">
+                <div className="pt-2 flex gap-3">
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={handleReset}
-                    className="w-full py-2.5 flex items-center justify-center gap-2 text-[13px]"
+                    className="flex-1 py-2.5 flex items-center justify-center gap-2 text-[13px]"
                   >
                     <RotateCcw size={14} />
-                    Score Another Transaction
+                    Reset
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => navigate(`/transactions/${result.assessment_id}`)}
+                    className="flex-1 py-2.5 flex items-center justify-center gap-2 text-[13px] bg-brand text-white"
+                  >
+                    Investigate Assessment
                   </Button>
                 </div>
               </div>

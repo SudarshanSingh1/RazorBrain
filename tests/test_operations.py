@@ -15,7 +15,6 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from api.app import app
-from database.migrations import run_migrations
 
 # Override the DB path for testing to use in-memory/temp DB
 # FastAPI app accesses app.state.razor_state.db_path

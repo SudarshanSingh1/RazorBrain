@@ -1,3 +1,4 @@
+import { safeFormatDate } from '../utils/date';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -64,9 +65,7 @@ export default function Overview() {
       header: 'TIMESTAMP',
       cell: (row) => (
         <span className="font-mono text-text-secondary text-[11px]">
-          {new Date(row.timestamp).toLocaleString(undefined, {
-            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
-          })}
+          {safeFormatDate(row.timestamp)}
         </span>
       )
     },

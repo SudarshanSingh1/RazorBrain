@@ -1,8 +1,5 @@
 
-import pytest
 import pandas as pd
-import numpy as np
-from datetime import datetime, timezone
 from model.feature_engineering import FEATURE_METADATA, compute_historical_features
 
 def test_feature_metadata_contract():

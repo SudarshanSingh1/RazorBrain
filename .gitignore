@@ -8,6 +8,8 @@ env/
 .pytest_cache/
 .mypy_cache/
 .coverage
+htmlcov/
+*.egg-info/
 
 # Environment/secrets
 .env
@@ -40,7 +42,14 @@ logs/
 experiments/
 tb_logs/
 data/generated/
-razorbrain*.db
+outputs/
+benchmarks/
+scratch/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
 
 # Docker volumes
 data_store/
@@ -48,12 +57,9 @@ data_store/
 # Phase 33.5 Cleanup: Data and Credentials
 data/raw/*.csv
 data/raw/*.zip
-*.db
 rzp-test-key.csv
 
 # Temporary & Scratch Files
 fix_*.js
 *.patch
 *.tmp
-
-

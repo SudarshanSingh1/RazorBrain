@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Bell, ChevronDown, Menu } from 'lucide-react';
+import { Bell, ChevronDown, Menu, RefreshCw } from 'lucide-react';
+import { useConnectionStatus } from '../../services/ConnectionProvider';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -8,6 +9,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const location = useLocation();
+  const { status, retryConnection, isRetrying } = useConnectionStatus();
+  
   let title = "Overview";
   let desc = "Real-time risk intelligence for your Razorpay payments";
   
@@ -35,7 +38,49 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   } else if (location.pathname.startsWith("/drift-monitoring")) {
     title = "Drift Monitoring";
     desc = "Monitor data distribution shifts over time.";
+  } else if (location.pathname.startsWith("/monitoring")) {
+    title = "Monitoring & Alerts";
+    desc = "Real-time operational health, alert management, and system metrics.";
+  } else if (location.pathname.startsWith("/registry")) {
+    title = "Model & Policy Registry";
+    desc = "Manage model versions and decision policy configurations.";
+  } else if (location.pathname.startsWith("/security")) {
+    title = "Security Settings";
+    desc = "Manage API access keys and security tokens.";
+  } else if (location.pathname.startsWith("/score-transaction")) {
+    title = "Score Transaction";
+    desc = "Run real-time fraud risk scoring against the inference API.";
+  } else if (location.pathname.startsWith("/cases")) {
+    title = "Investigations";
+    desc = "Manage and resolve flagged transaction investigation cases.";
   }
+
+  // Connection status styling
+  const statusConfig = {
+    ONLINE: {
+      dot: 'bg-accent-green',
+      text: 'API Connected',
+      textColor: 'text-text-secondary',
+    },
+    CONNECTING: {
+      dot: 'bg-accent-yellow animate-pulse',
+      text: 'Connecting...',
+      textColor: 'text-accent-yellow',
+    },
+    OFFLINE: {
+      dot: 'bg-accent-red',
+      text: 'API Offline',
+      textColor: 'text-accent-red',
+    },
+    DEGRADED: {
+      dot: 'bg-accent-yellow',
+      text: 'API Degraded',
+      textColor: 'text-accent-yellow',
+    },
+  };
+
+  const cfg = statusConfig[status];
+  const isOfflineOrDegraded = status === 'OFFLINE' || status === 'DEGRADED';
 
   return (
     <header className="sticky top-0 z-20 bg-bg-main/80 backdrop-blur-xl border-b border-border-subtle px-4 md:px-8 py-5 flex items-center justify-between">
@@ -57,11 +102,25 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       </div>
 
       <div className="flex items-center gap-4 md:gap-6">
-        {/* Connection Status Pill */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-subtle bg-bg-card text-[12px] font-medium text-text-secondary">
-          <span className="w-2 h-2 rounded-full bg-accent-green"></span>
-          Live · Connected
-        </div>
+        {/* Connection Status Pill — Dynamic */}
+        <button
+          onClick={isOfflineOrDegraded ? retryConnection : undefined}
+          disabled={isRetrying}
+          className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-subtle bg-bg-card text-[12px] font-medium ${cfg.textColor} transition-all duration-200 ${
+            isOfflineOrDegraded ? 'hover:bg-bg-card-secondary cursor-pointer' : 'cursor-default'
+          } disabled:opacity-50`}
+          title={isOfflineOrDegraded ? 'Click to retry connection' : 'API connection healthy'}
+        >
+          <span className={`w-2 h-2 rounded-full ${cfg.dot}`}></span>
+          {isRetrying ? (
+            <>
+              <RefreshCw size={10} className="animate-spin" />
+              Retrying...
+            </>
+          ) : (
+            cfg.text
+          )}
+        </button>
 
         
         {/* Notifications */}

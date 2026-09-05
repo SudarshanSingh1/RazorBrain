@@ -5,6 +5,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi import APIRouter, Request, HTTPException, status, Depends
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
+from datetime import datetime, timezone
 
 from api.security import get_api_key
 from api.schemas import (
@@ -92,22 +93,70 @@ async def assess(txn_request: TransactionRequest, request: Request, api_key: str
 
 @router.get("/health")
 async def health():
-    return {"status": "ok", "service": "razorbrain_api"}
+    return {
+        "status": "ok",
+        "service": "razorbrain_api",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 
 @router.get("/ready")
 async def ready(request: Request):
     state = request.app.state.razor_state
-
-    if not getattr(state, "serving_model_ready", False):
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Serving model unavailable.")
-
-    return {
-        "status": "ready",
-        "model_c_ready": getattr(state, "is_ready", False),
-        "serving_model_ready": True,
-        "feature_contract_valid": True
+    
+    checks = {}
+    overall_status = "READY"
+    
+    # Check serving model
+    serving_ready = getattr(state, "serving_model_ready", False)
+    checks["serving_model"] = "ok" if serving_ready else "unavailable"
+    
+    # Check Model C
+    model_c_ready = getattr(state, "is_ready", False)
+    checks["model_c"] = "ok" if model_c_ready else "unavailable"
+    
+    # Check database connectivity
+    db_ok = False
+    try:
+        import sqlite3
+        db_path = getattr(state, "db_path", "razorbrain_api.db")
+        with sqlite3.connect(db_path, timeout=2) as conn:
+            conn.execute("SELECT 1")
+            db_ok = True
+    except Exception:
+        pass
+    checks["database"] = "ok" if db_ok else "unavailable"
+    
+    # Check event processor
+    processor_running = getattr(state, "processor_task", None) is not None and not state.processor_task.done()
+    checks["event_processor"] = "ok" if processor_running else "unavailable"
+    
+    # Check metrics collector
+    metrics_ok = getattr(state, "metrics_collector", None) is not None
+    checks["metrics_collector"] = "ok" if metrics_ok else "unavailable"
+    
+    # Determine overall status
+    critical_checks = [serving_ready, db_ok]
+    non_critical_checks = [model_c_ready, processor_running, metrics_ok]
+    
+    if not all(critical_checks):
+        overall_status = "NOT_READY"
+    elif not all(non_critical_checks):
+        overall_status = "DEGRADED"
+    
+    response_data = {
+        "status": overall_status,
+        "checks": checks,
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
+    
+    if overall_status == "NOT_READY":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=response_data
+        )
+    
+    return response_data
 
 
 class EventAcceptedResponse(BaseModel):

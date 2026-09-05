@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, Button, Badge } from '../components/ui';
 import { CreditCard, AlertTriangle, Play, ShieldAlert, CheckCircle, SearchCheck } from 'lucide-react';
 import { createTestOrder, assessTestPayment } from '../services/api';
@@ -16,10 +17,11 @@ const loadRazorpayScript = () => {
 };
 
 export function RazorpayTest() {
-  const [amount, setAmount] = useState('100.00');
+  const navigate = useNavigate();
+  const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('INR');
-  const [customerId, setCustomerId] = useState('cust_test123@example.com');
-  const [merchantId, setMerchantId] = useState('merch_test1');
+  const [customerId, setCustomerId] = useState('');
+  const [merchantId, setMerchantId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -254,7 +256,7 @@ export function RazorpayTest() {
           </div>
           
           <div className="pt-4 border-t border-border-subtle">
-            <Button onClick={() => window.location.href = `/transactions/${assessment.assessment_id}`}>
+            <Button onClick={() => navigate(`/transactions/${assessment.assessment_id}`)}>
               Investigate Assessment Details
             </Button>
           </div>

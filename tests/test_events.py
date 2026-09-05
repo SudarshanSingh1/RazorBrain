@@ -1,9 +1,8 @@
 import pytest
-import asyncio
 from fastapi.testclient import TestClient
 
 from api.app import app
-from api.events import InMemoryEventBroker, EventProcessor
+from api.events import InMemoryEventBroker
 
 
 
@@ -74,7 +73,7 @@ def test_duplicate_event_handling(client):
     
     # We must allow the background task to process it
     # We'll just submit it again via the synchronous route to prove it rejects
-    r2 = client.post("/transactions/assess", json=txn)
+    client.post("/transactions/assess", json=txn)
     
     # Wait, the first one might not have processed yet since it's async!
     # The requirement is that duplicate events are handled gracefully.
@@ -84,7 +83,7 @@ def test_duplicate_event_handling(client):
 @pytest.mark.anyio
 async def test_event_processor_lifecycle():
     """Unit test for the event processor."""
-    broker = InMemoryEventBroker(max_size=10)
+    InMemoryEventBroker(max_size=10)
     
     # We don't have the full app state easily, we can mock it
     # But since the integration test above covers end-to-end, this is good.

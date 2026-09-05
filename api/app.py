@@ -16,7 +16,7 @@ def _load_env_file(filepath: str = ".env"):
                         v = v.strip().strip("'\"")
                         if k and k not in os.environ:
                             os.environ[k] = v
-        except Exception as e:
+        except Exception:
             pass
 
 _load_env_file()
@@ -35,6 +35,9 @@ from api.razorpay_routes import webhook_router
 from api.dashboard_routes import router as dashboard_router
 from api.predict_routes import router as predict_router
 from api.case_routes import router as case_router
+from api.monitoring_routes import router as monitoring_router
+from api.management_routes import router as management_router
+from api.security_routes import router as security_router
 from api.schemas import ErrorResponse, ErrorDetail
 
 logger = logging.getLogger(__name__)
@@ -55,6 +58,9 @@ app.include_router(webhook_router)
 app.include_router(dashboard_router)
 app.include_router(predict_router)
 app.include_router(case_router)
+app.include_router(monitoring_router)
+app.include_router(management_router)
+app.include_router(security_router)
 
 cors_origins_env = os.environ.get("RAZORBRAIN_CORS_ORIGINS", "*")
 allow_origins = [origin.strip() for origin in cors_origins_env.split(",")] if cors_origins_env else ["*"]
@@ -90,6 +96,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 app.add_middleware(RequestIDMiddleware)
+
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_upload_size: int = 1048576): # 1MB
+        super().__init__(app)
+        self.max_upload_size = max_upload_size
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get('content-length')
+        if content_length and int(content_length) > self.max_upload_size:
+            err = ErrorResponse(error=ErrorDetail(code="PAYLOAD_TOO_LARGE", message="Request body exceeds size limit", request_id=getattr(request.state, "request_id", "unknown")))
+            return JSONResponse(status_code=413, content=err.model_dump())
+        return await call_next(request)
+
+app.add_middleware(RequestSizeLimitMiddleware)
+
 
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):

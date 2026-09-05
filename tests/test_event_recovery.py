@@ -4,7 +4,7 @@ import asyncio
 from unittest.mock import patch, MagicMock
 
 from database.repository import reserve_event, update_event_status, DuplicateEventError, save_assessment, DuplicateAssessmentError
-from api.events import EventProcessor, TransactionEvent, AssessmentResultEvent
+from api.events import EventProcessor
 
 def test_event_idempotency_vs_assessment_uniqueness():
     conn = sqlite3.connect(":memory:")

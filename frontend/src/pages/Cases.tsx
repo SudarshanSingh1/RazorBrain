@@ -1,3 +1,4 @@
+import { safeFormatDate } from '../utils/date';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -378,12 +379,7 @@ export default function Cases() {
                       )}
                     </td>
                     <td className="px-4 py-3 font-mono text-[12px] text-text-muted">
-                      {new Date(c.created_at).toLocaleString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {safeFormatDate(c.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link

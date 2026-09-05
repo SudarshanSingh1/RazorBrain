@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import patch
 from fastapi.testclient import TestClient
 import json
 from api.app import app

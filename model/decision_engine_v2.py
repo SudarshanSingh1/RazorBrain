@@ -14,7 +14,7 @@ import math
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from model.serving_rule_engine import ServingRuleEngine, RuleResult, SEVERITY_ORDER
+from model.serving_rule_engine import ServingRuleEngine
 from model.serving_risk_fusion import HybridRiskFusionEngine, HybridRiskAssessment
 
 logger = logging.getLogger(__name__)
@@ -37,12 +37,15 @@ SEVERITY_TO_DECISION: Dict[int, str] = {
 class DecisionPolicyV2:
     """Configurable 4-tier decision boundaries and hard overrides."""
 
-    def __init__(self, policy_path: str = "data/razorpay_serving_decision_policy_v2.json"):
-        if not os.path.exists(policy_path):
-            raise FileNotFoundError(f"Decision policy missing: {policy_path}")
+    def __init__(self, policy_path: str = "data/razorpay_serving_decision_policy_v2.json", config_dict: Optional[Dict[str, Any]] = None):
+        if config_dict:
+            policy = config_dict
+        else:
+            if not os.path.exists(policy_path):
+                raise FileNotFoundError(f"Decision policy missing: {policy_path}")
 
-        with open(policy_path, "r", encoding="utf-8") as f:
-            policy = json.load(f)
+            with open(policy_path, "r", encoding="utf-8") as f:
+                policy = json.load(f)
 
         self.metadata = policy
         self.version = policy.get("policy_version", "2.0")

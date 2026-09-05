@@ -5,7 +5,7 @@ and defensive edge-case handling.
 """
 
 import pytest
-from model.serving_rule_engine import ServingRuleEngine, RuleResult, SEVERITY_ORDER
+from model.serving_rule_engine import ServingRuleEngine
 
 
 @pytest.fixture

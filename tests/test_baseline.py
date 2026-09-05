@@ -4,7 +4,6 @@ Tests for the Baseline Fraud Model.
 
 import pytest
 import pandas as pd
-import numpy as np
 
 from data.generator import generate_transactions
 from model.feature_engineering import (

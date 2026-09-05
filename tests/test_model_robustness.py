@@ -1,5 +1,3 @@
-import pytest
-import pandas as pd
 from api.app import app
 from data.generator import generate_transactions
 from model.feature_engineering import compute_historical_features
@@ -9,7 +7,7 @@ def test_temporal_leakage_safety():
     df = generate_transactions(n=500, seed=42)
     # Pick a timestamp in the middle
     mid_idx = 250
-    t_target = df.iloc[mid_idx]["timestamp"]
+    df.iloc[mid_idx]["timestamp"]
     
     # Engineer features on the full dataset
     df_full_features = compute_historical_features(df.copy())

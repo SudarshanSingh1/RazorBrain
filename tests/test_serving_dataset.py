@@ -65,7 +65,6 @@ def test_model_c_artifacts_untouched():
     assert os.path.exists('data/validation_selected_policy.json')
 
 def test_historical_features_causality():
-    import numpy as np
     # Create a synthetic dataframe with explicit chronological ordering
     # and verify that the rolling/historical features do not include the current row
     

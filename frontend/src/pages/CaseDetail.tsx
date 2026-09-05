@@ -1,3 +1,4 @@
+import { safeFormatDate } from '../utils/date';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
@@ -16,7 +17,8 @@ import {
   ExternalLink,
   ShieldCheck,
   X,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import {
   getCaseDetail,
@@ -401,7 +403,7 @@ export default function CaseDetail() {
                   {caseData.resolution_type}
                 </span>
                 <span className="text-[12px] text-emerald-400/80">
-                  at {new Date(caseData.resolved_at || '').toUTCString()}
+                  at {safeFormatDate(caseData.resolved_at || '')}
                 </span>
               </div>
               {caseData.resolution_notes && (
@@ -461,14 +463,14 @@ export default function CaseDetail() {
               <div className="flex justify-between items-center py-1 border-b border-border-subtle/40">
                 <span className="text-text-muted">Created (UTC):</span>
                 <span className="text-text-secondary text-[12px]">
-                  {new Date(caseData.created_at).toUTCString()}
+                  {safeFormatDate(caseData.created_at)}
                 </span>
               </div>
 
               <div className="flex justify-between items-center py-1">
                 <span className="text-text-muted">Last Updated:</span>
                 <span className="text-text-secondary text-[12px]">
-                  {new Date(caseData.updated_at).toUTCString()}
+                  {safeFormatDate(caseData.updated_at)}
                 </span>
               </div>
             </div>
@@ -492,7 +494,7 @@ export default function CaseDetail() {
               <div className="flex justify-between items-center">
                 <span className="text-text-muted text-[13px]">Deadline (UTC):</span>
                 <span className="font-mono text-[12px] text-text-secondary">
-                  {new Date(sla.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                  {safeFormatDate(sla.deadline)}
                 </span>
               </div>
 
@@ -633,6 +635,56 @@ export default function CaseDetail() {
             </div>
           </Card>
 
+          {/* SHAP EXPLANATION SECTION */}
+          {caseData.explanation_snapshot && caseData.explanation_snapshot.status === 'AVAILABLE' && (
+            <Card>
+              <CardHeader className="pb-3 border-b border-border-subtle/50">
+                <CardTitle className="text-[14px] flex items-center justify-between text-text-primary">
+                  <span className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-brand-bright" />
+                    Why the Model Flagged This
+                  </span>
+                  <Badge variant="default" className="text-[10px] font-mono px-2 py-0.5">
+                    TreeSHAP Explainer
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Top Positive Contributions (Increases Risk) */}
+                <div className="space-y-2">
+                  <span className="text-[11.5px] font-semibold text-rose-400 uppercase tracking-wider block">
+                    Increases Risk Score
+                  </span>
+                  {caseData.explanation_snapshot.top_positive.map((item: any, idx: number) => (
+                    <div key={idx} className="p-2.5 rounded-lg bg-bg-main/50 border border-rose-500/20 text-[12px] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-text-primary">{item.feature}</span>
+                        <span className="font-mono text-[10.5px] text-rose-400">+{item.shap_value.toFixed(4)}</span>
+                      </div>
+                      <p className="text-[11.5px] text-text-muted">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Top Negative Contributions (Decreases Risk) */}
+                <div className="space-y-2">
+                  <span className="text-[11.5px] font-semibold text-emerald-400 uppercase tracking-wider block">
+                    Decreases Risk Score
+                  </span>
+                  {caseData.explanation_snapshot.top_negative.map((item: any, idx: number) => (
+                    <div key={idx} className="p-2.5 rounded-lg bg-bg-main/50 border border-emerald-500/20 text-[12px] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-text-primary">{item.feature}</span>
+                        <span className="font-mono text-[10.5px] text-emerald-400">{item.shap_value.toFixed(4)}</span>
+                      </div>
+                      <p className="text-[11.5px] text-text-muted">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Audit Timeline */}
           <Card>
             <CardHeader className="pb-3 border-b border-border-subtle/50">
@@ -672,7 +724,7 @@ export default function CaseDetail() {
                             )}
                           </div>
                           <span className="text-[11.5px] text-text-muted">
-                            {new Date(evt.created_at).toUTCString()}
+                            {safeFormatDate(evt.created_at)}
                           </span>
                         </div>
 

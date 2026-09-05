@@ -1,9 +1,9 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from api.app import app
-from api.razorpay_adapter import normalize_razorpay_payment, RazorpayAdapter
+from api.razorpay_adapter import normalize_razorpay_payment
 
 client = TestClient(app)
 
@@ -221,7 +221,6 @@ def test_consistency_manual_and_webhook(mock_assess, mock_fetch, mock_razorpay_e
 @patch("api.razorpay_routes.RazorpayAdapter.fetch_payment")
 @patch("api.razorpay_routes.assess_serving_transaction")
 def test_investigate_serving_assessment(mock_assess, mock_fetch, mock_razorpay_env):
-    import uuid
     # 1. Create it via the endpoint
     payment_data = {
         "id": "pay_inv123",

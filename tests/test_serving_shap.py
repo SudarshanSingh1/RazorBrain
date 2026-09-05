@@ -4,12 +4,9 @@ All fixtures are synthetic — test.csv is never opened.
 """
 import ast
 import hashlib
-import json
-import math
 import os
 import sys
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -217,9 +214,9 @@ def test_calibrated_risk_independent_of_shap(explainer, fixture):
     # SHAP explains the XGBoost margin — this is NOT the calibrated risk
     # The calibrated risk comes from isotonic regression on top
     loader = ServingModelLoader()
-    calibrated_risk = float(loader.predict_calibrated_proba(fixture)[0])
+    float(loader.predict_calibrated_proba(fixture)[0])
     # They must differ (margin space != calibrated probability space)
-    margin = shap_result["model_output"]
+    shap_result["model_output"]
     # Can't assert exact inequality (they might coincidentally be close) but
     # we CAN assert the SHAP result doesn't claim to be the calibrated risk
     assert shap_result["explained_output"] == "UNCALIBRATED_XGBOOST_MARGIN"

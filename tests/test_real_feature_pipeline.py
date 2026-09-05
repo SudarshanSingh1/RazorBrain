@@ -1,11 +1,9 @@
 import pytest
 import pandas as pd
-import numpy as np
 from model.real_feature_pipeline import RealFeaturePipeline
 from model.real_feature_contract import (
     ENGINEERED_CORE,
     RAW_SAFE,
-    REJECTED_FEATURES,
     PRIMARY_REAL_FEATURE_SET,
 )
 

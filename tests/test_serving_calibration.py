@@ -10,7 +10,6 @@ Verifies:
 """
 import ast
 import hashlib
-import inspect
 import json
 import os
 import sys
@@ -18,7 +17,6 @@ import sys
 import numpy as np
 import pandas as pd
 import pytest
-import joblib
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from model.serving_model_loader import ServingModelLoader
@@ -69,7 +67,6 @@ def test_calibration_script_never_opens_test_csv():
     assert 'read_csv("' not in source or "test.csv" not in source.split("read_csv")[1].split(")")[0] \
         if "read_csv" in source else True
     # Simpler: scan the AST for string literals 'test.csv' passed to open/read_csv
-    import ast
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -105,7 +102,7 @@ def test_calibration_report_metrics_reasonable():
     # ROC-AUC should be preserved (monotonic transformation)
     uncal_roc = report["metrics"]["uncalibrated"]["roc_auc"]
     platt_roc = report["metrics"]["platt"]["roc_auc"]
-    iso_roc = report["metrics"]["isotonic"]["roc_auc"]
+    report["metrics"]["isotonic"]["roc_auc"]
     assert abs(platt_roc - uncal_roc) < 0.005, "Platt must not change ROC-AUC significantly"
     # Brier and log_loss must improve under calibration
     assert report["metrics"]["platt"]["brier"] < report["metrics"]["uncalibrated"]["brier"]

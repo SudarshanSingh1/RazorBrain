@@ -1,0 +1,66 @@
+# RazorBrain Render Deployment Blueprint
+# Documentation: https://render.com/docs/blueprint-spec
+#
+# IMPORTANT: SQLite Persistence Limitations
+# ------------------------------------------
+# Render web services use an ephemeral filesystem by default.
+# SQLite database files will be LOST on every deploy/restart.
+# For durable persistence, either:
+#   1. Attach a Render Persistent Disk (mount at /app/data_store)
+#   2. Migrate to a managed PostgreSQL database (e.g., Render PostgreSQL)
+#
+# The disk configuration below is commented out. Uncomment and configure
+# if you have a paid Render plan that supports persistent disks.
+
+services:
+  # ── Backend API Service ──────────────────────────────────────────────
+  - type: web
+    name: razorbrain-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: RAZORBRAIN_API_KEY
+        generateValue: true
+      - key: RAZORBRAIN_DB_PATH
+        value: /app/data_store/razorbrain_production.db
+      - key: RAZORBRAIN_CORS_ORIGINS
+        sync: false  # Must be set manually to your frontend URL
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_MODE
+        value: test
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+    # Uncomment below for persistent disk (paid plans only):
+    # disk:
+    #   name: razorbrain-data
+    #   mountPath: /app/data_store
+    #   sizeGB: 1
+
+  # ── Frontend Static Site ─────────────────────────────────────────────
+  - type: web
+    name: razorbrain-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false  # Must be set to the backend service URL (e.g., https://razorbrain-api.onrender.com)
+      - key: VITE_API_KEY
+        sync: false  # Must match the RAZORBRAIN_API_KEY on the backend

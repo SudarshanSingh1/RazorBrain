@@ -10,7 +10,6 @@ Verifies:
 
 import pytest
 import pandas as pd
-import numpy as np
 
 from data.generator import generate_transactions
 from model.feature_engineering import (
@@ -87,7 +86,7 @@ def test_cold_start_defaults(sample_dataset):
     assert (new_customers["amount_deviation"] == 0.0).all()
     
     # For new merchants
-    new_merchants = df_hist[df_hist["is_new_merchant"] == 1]
+    df_hist[df_hist["is_new_merchant"] == 1]
     # Removed merchant_fraud_rate cold start assertion due to generator artifact
 
 

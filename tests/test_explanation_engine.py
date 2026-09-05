@@ -6,11 +6,8 @@ Ensures explanations are read-only, securely fallback, and strictly grounded.
 import pytest
 from model.explanation_engine import (
     ExplanationEngine, 
-    DeterministicFallbackProvider,
     LocalLLMProvider,
-    ExplanationProvider,
-    ProviderUnavailableError,
-    ExplanationValidationError
+    ExplanationProvider
 )
 
 @pytest.fixture

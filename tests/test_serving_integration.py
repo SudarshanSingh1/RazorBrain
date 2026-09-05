@@ -4,8 +4,6 @@ All fixtures are synthetic. test.csv is never opened. Model C is never used for 
 """
 import ast
 import hashlib
-import json
-import math
 import os
 import sqlite3
 import sys
@@ -14,25 +12,21 @@ import uuid
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from model.serving_feature_extractor import (
-    SERVING_FEATURES, REJECTED_FEATURES, extract_serving_features,
+    SERVING_FEATURES, extract_serving_features,
     ServingFeatureExtractorError,
 )
 from model.serving_model_loader import ServingModelLoader
 from model.serving_policy_loader import ServingPolicyLoader
-from model.serving_shap_explainer import make_fixture
 from database.migrations import run_migrations
 from api.serving_service import (
     assess_serving_transaction,
-    save_serving_assessment,
     get_serving_assessment,
     get_serving_historical_features,
-    check_event_already_processed,
     DuplicateServingAssessmentError,
 )
 
@@ -379,7 +373,7 @@ def test_duplicate_event_does_not_duplicate_history(tmp_db):
 def test_audit_record_persisted(tmp_db):
     state = make_serving_state(loader=ServingModelLoader(), policy=ServingPolicyLoader())
     aid = str(uuid.uuid4())
-    result = assess_serving_transaction(make_payment(assessment_id=aid), None, state, tmp_db)
+    assess_serving_transaction(make_payment(assessment_id=aid), None, state, tmp_db)
 
     with sqlite3.connect(tmp_db) as conn:
         conn.row_factory = sqlite3.Row

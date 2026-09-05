@@ -14,8 +14,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from api.security import get_api_key
+
+from api.security import rate_limit
+from api.idempotency_service import IdempotencyService, IdempotencyError
+import hashlib
+
 from model.serving_feature_extractor import (
-    SERVING_FEATURES,
     extract_serving_features,
     ServingFeatureExtractorError,
 )
@@ -28,8 +32,8 @@ router = APIRouter(tags=["Prediction"])
 
 class PredictRequest(BaseModel):
     transaction_id: Optional[str] = Field(None, max_length=100)
-    amount: Optional[float] = Field(None)
-    transaction_amount: Optional[float] = Field(None)
+    amount: Optional[float] = Field(None, allow_inf_nan=False)
+    transaction_amount: Optional[float] = Field(None, allow_inf_nan=False)
 
     customer_id: Optional[str] = Field(None, max_length=100)
     email: Optional[str] = Field(None, max_length=150)
@@ -49,6 +53,7 @@ class PredictRequest(BaseModel):
     amount_ratio: Optional[float] = Field(None, ge=0.0)
     txns_last_1h: Optional[int] = Field(0, ge=0)
     txns_last_24h: Optional[int] = Field(0, ge=0)
+    include_explanation: Optional[bool] = Field(False)
 
     @model_validator(mode="before")
     @classmethod
@@ -118,6 +123,7 @@ class DecisionDetails(BaseModel):
     rule_policy_version: str = "1.0"
     fusion_version: str = "1.0"
     case: Optional[Dict[str, Any]] = None
+    explanation: Optional[Dict[str, Any]] = None
     scored_at: str
     features_used: Dict[str, Any]
 
@@ -216,7 +222,7 @@ def _run_core_inference(payload: PredictRequest, request: Request):
         if not isinstance(v, (int, float, str, bool)):
             features_used[k] = float(v) if hasattr(v, "item") else str(v)
 
-    return fraud_probability, features_used, txn_id, now_iso, state
+    return fraud_probability, features_used, txn_id, now_iso, state, X
 
 
 @router.post(
@@ -235,8 +241,9 @@ async def predict_transaction(
     payload: PredictRequest,
     request: Request,
     api_key: Optional[str] = Depends(get_api_key),
+    _rate_limit: None = Depends(rate_limit('predict', 50, 5.0)),
 ):
-    fraud_probability, features_used, txn_id, now_iso, state = _run_core_inference(payload, request)
+    fraud_probability, features_used, txn_id, now_iso, state, X = _run_core_inference(payload, request)
 
     policy_loader = getattr(state, "serving_policy_loader", None)
     t_review = float(getattr(policy_loader, "t_review", 0.1213))
@@ -282,8 +289,22 @@ async def decide_transaction(
     payload: PredictRequest,
     request: Request,
     api_key: Optional[str] = Depends(get_api_key),
+    _rate_limit: None = Depends(rate_limit('predict', 50, 5.0)),
 ):
-    fraud_probability, features_used, txn_id, now_iso, state = _run_core_inference(payload, request)
+    idempotency_key = request.headers.get("Idempotency-Key")
+    payload_hash = hashlib.sha256(payload.model_dump_json().encode()).hexdigest()
+    
+    db_path = getattr(request.app.state, "razor_state", None).db_path if getattr(request.app.state, "razor_state", None) else "razorbrain_api.db"
+    idemp_svc = IdempotencyService(db_path)
+    
+    if idempotency_key:
+        try:
+            cached = idemp_svc.check_or_store(idempotency_key, payload_hash)
+            if cached:
+                return cached["response"]
+        except IdempotencyError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    fraud_probability, features_used, txn_id, now_iso, state, X = _run_core_inference(payload, request)
 
     # 1. Base ML risk level
     policy_loader = getattr(state, "serving_policy_loader", None)
@@ -311,23 +332,38 @@ async def decide_transaction(
         model_risk_level=risk_level,
     )
 
-    # 3. Log to WAL database
+    # 3. Generate Explanation if requested or needed for auto-case creation
+    explanation_result = None
+    if payload.include_explanation or (
+        getattr(state, "case_policy", None) 
+        and getattr(state, "case_policy").should_create_case(final_decision)
+    ):
+        expl_svc = getattr(state, "serving_explanation_service", None)
+        if expl_svc:
+            try:
+                explanation_result = expl_svc.explain_transaction(X, fraud_probability)
+                if explanation_result.get("status") != "AVAILABLE":
+                    logger.warning(f"Explanation unavailable: {explanation_result.get('reason')}")
+                    explanation_result = None
+            except Exception as e:
+                logger.error(f"Failed to generate explanation: {e}", exc_info=True)
+                explanation_result = None
+                # Option B from instructions: continue without explanation snapshot on failure
+
+    # 4. Log to WAL database
+    import uuid
+    assessment_id = str(uuid.uuid4())
     db_path = getattr(state, "db_path", "razorbrain_api.db")
     import sqlite3
     try:
         with sqlite3.connect(db_path) as conn:
             c = conn.cursor()
             c.execute("""
-                INSERT OR IGNORE INTO transactions (transaction_id, timestamp, amount, customer_id, merchant_id, context_data)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (txn_id, now_iso, payload.amount, payload.customer_id, "MANUAL_DECISION", "{}"))
-            
-            assessment_id = f"ass_{uuid.uuid4().hex[:12]}"
-            c.execute("""
                 INSERT INTO serving_assessments (
                     assessment_id, transaction_id, timestamp, risk, decision, decision_reason, decision_trace,
+                    model_version, policy_version, feature_contract_version,
                     rule_policy_version, triggered_rules, fusion_version, fusion_result, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 assessment_id,
                 txn_id,
@@ -336,6 +372,9 @@ async def decide_transaction(
                 final_decision,
                 decision_reason,
                 json.dumps(decision_trace),
+                getattr(state, "active_model_version", "unknown"),
+                getattr(state, "active_policy_version", "unknown"),
+                getattr(state, "active_feature_contract_version", "unknown"),
                 getattr(decision_engine.rule_engine, "policy_version", "1.0"),
                 json.dumps([r.to_dict() for r in hybrid_assessment.triggered_rules]),
                 hybrid_assessment.fusion_version,
@@ -351,7 +390,7 @@ async def decide_transaction(
     loader_meta = getattr(loader, "metadata", {}) or {}
     model_version = loader_meta.get("version", "1.0")
 
-    # 4. Evaluate case creation policy & create case if appropriate
+    # 5. Evaluate case creation policy & create case if appropriate
     case_ref: Dict[str, Any] = {"case_created": False, "reason": f"FINAL_DECISION_{final_decision}"}
     try:
         from api.case_service import CaseService, CasePolicy
@@ -388,6 +427,7 @@ async def decide_transaction(
                     "triggered_rules": [r.to_dict() for r in hybrid_assessment.triggered_rules],
                     "fusion_version": hybrid_assessment.fusion_version,
                 },
+                explanation_snapshot=explanation_result,
                 actor="DECISION_ENGINE",
             )
             case_ref = {
@@ -403,7 +443,7 @@ async def decide_transaction(
             "warning": "Case creation encountered an internal error but transaction assessment was preserved.",
         }
 
-    return DecideResponse(
+    response_obj = DecideResponse(
         success=True,
         decision=DecisionDetails(
             transaction_id=txn_id,
@@ -426,7 +466,55 @@ async def decide_transaction(
             rule_policy_version=getattr(decision_engine.rule_engine, "policy_version", "1.0"),
             fusion_version=hybrid_assessment.fusion_version,
             case=case_ref,
+            explanation=explanation_result if payload.include_explanation else None,
             scored_at=now_iso,
             features_used=features_used,
         )
     )
+    if idempotency_key:
+        idemp_svc.save_response(idempotency_key, payload_hash, response_obj.dict(), 200)
+    return response_obj
+
+
+@router.post(
+    "/transactions/explain",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Get detailed SHAP explanations for a transaction",
+)
+async def explain_transaction(
+    payload: PredictRequest,
+    request: Request,
+    api_key: Optional[str] = Depends(get_api_key),
+    _rate_limit: None = Depends(rate_limit('predict', 50, 5.0)),
+):
+    fraud_probability, features_used, txn_id, now_iso, state, X = _run_core_inference(payload, request)
+
+    expl_svc = getattr(state, "serving_explanation_service", None)
+    if not expl_svc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Explanation service is currently unavailable.",
+        )
+        
+    try:
+        explanation_result = expl_svc.explain_transaction(X, fraud_probability)
+        if explanation_result.get("status") != "AVAILABLE":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Explanation unavailable: {explanation_result.get('reason')}"
+            )
+        
+        return {
+            "success": True,
+            "transaction_id": txn_id,
+            "explanation": explanation_result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Explanation extraction failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Internal error generating explanation."
+        )

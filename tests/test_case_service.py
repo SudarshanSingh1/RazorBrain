@@ -8,11 +8,8 @@ import tempfile
 import pytest
 from api.case_service import (
     CaseService,
-    CasePolicy,
-    CaseNotFoundError,
     InvalidStateTransitionError,
     ConcurrencyConflictError,
-    VALID_RESOLUTIONS,
 )
 from database.migrations import run_migrations
 

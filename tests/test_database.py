@@ -7,7 +7,6 @@ and independence from ML recalculations.
 import pytest
 import os
 import sqlite3
-import json
 from database.connection import get_session
 from database.migrations import run_migrations
 from database.repository import save_assessment, get_assessment, DuplicateAssessmentError

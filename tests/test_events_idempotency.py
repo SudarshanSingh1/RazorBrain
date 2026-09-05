@@ -14,7 +14,7 @@ def run_migrations():
 @pytest.mark.anyio
 async def test_same_event_id_delivered_twice():
     """Test Event-Level Idempotency."""
-    with TestClient(app) as client: # triggers lifespan
+    with TestClient(app): # triggers lifespan
         state = app.state.razor_state
         processor = state.processor
         
@@ -98,7 +98,7 @@ def test_different_events_same_assessment_id():
 async def test_concurrent_duplicate_events():
     """Test concurrent delivery of the exact same event_id to the processor."""
     import uuid
-    with TestClient(app) as client:
+    with TestClient(app):
         state = app.state.razor_state
         processor = state.processor
         evt_id = "CONCURRENT-" + str(uuid.uuid4())
@@ -121,7 +121,6 @@ async def test_concurrent_duplicate_events():
         }
         
         # We'll dispatch two concurrently
-        import asyncio
         task1 = asyncio.create_task(processor._handle_transaction_received(event_dict))
         task2 = asyncio.create_task(processor._handle_transaction_received(event_dict))
         

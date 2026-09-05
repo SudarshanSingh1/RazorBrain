@@ -1,8 +1,6 @@
-import pytest
 import joblib
 import pandas as pd
 import json
-import os
 import hashlib
 
 def get_md5(file_path):

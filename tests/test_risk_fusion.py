@@ -5,7 +5,7 @@ Tests monotonic intervention escalation, conflict detection, and evidence separa
 
 import pytest
 from model.serving_rule_engine import RuleResult
-from model.serving_risk_fusion import HybridRiskFusionEngine, HybridRiskAssessment
+from model.serving_risk_fusion import HybridRiskFusionEngine
 
 
 @pytest.fixture

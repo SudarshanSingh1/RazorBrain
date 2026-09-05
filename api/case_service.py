@@ -13,7 +13,7 @@ import logging
 import os
 import sqlite3
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +142,7 @@ class CaseService:
         decision_snapshot: Dict[str, Any],
         risk_snapshot: Dict[str, Any],
         rule_snapshot: Dict[str, Any],
+        explanation_snapshot: Optional[Dict[str, Any]] = None,
         priority_override: Optional[str] = None,
         assigned_to: Optional[str] = None,
         actor: str = "SYSTEM",
@@ -182,8 +183,8 @@ class CaseService:
                         case_id, transaction_id, assessment_id, status, priority,
                         assigned_to, case_policy_version, created_from_decision,
                         created_from_reason, decision_snapshot, risk_snapshot,
-                        rule_snapshot, audit_metadata, version, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        rule_snapshot, explanation_snapshot, explanation_version, audit_metadata, version, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         case_id,
@@ -198,6 +199,8 @@ class CaseService:
                         json.dumps(decision_snapshot),
                         json.dumps(risk_snapshot),
                         json.dumps(rule_snapshot),
+                        json.dumps(explanation_snapshot) if explanation_snapshot else None,
+                        "1.0" if explanation_snapshot else None,
                         json.dumps(audit_meta),
                         1,
                         now_iso,
@@ -240,7 +243,7 @@ class CaseService:
                 raise CaseNotFoundError(f"Case '{case_id}' not found.")
             data = dict(row)
             # Parse JSON snapshots safely
-            for col in ["decision_snapshot", "risk_snapshot", "rule_snapshot", "audit_metadata"]:
+            for col in ["decision_snapshot", "risk_snapshot", "rule_snapshot", "explanation_snapshot", "audit_metadata"]:
                 if data.get(col) and isinstance(data[col], str):
                     try:
                         data[col] = json.loads(data[col])

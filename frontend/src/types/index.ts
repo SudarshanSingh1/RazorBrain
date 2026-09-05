@@ -122,6 +122,7 @@ export interface HybridRiskAssessmentData {
 }
 
 export interface DecisionDetails {
+  assessment_id?: string;
   transaction_id: string;
   fraud_probability: number;
   risk_level: RiskLevel;
@@ -149,6 +150,7 @@ export interface DecisionDetails {
     reason?: string;
     warning?: string;
   };
+  explanation?: Record<string, any>;
   scored_at: string;
   features_used: Record<string, any>;
 }
@@ -189,6 +191,7 @@ export interface InvestigationCase {
   decision_snapshot: Record<string, any>;
   risk_snapshot: Record<string, any>;
   rule_snapshot: Record<string, any>;
+  explanation_snapshot?: Record<string, any>;
   audit_metadata?: Record<string, any>;
   version: number;
   created_at: string;

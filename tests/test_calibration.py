@@ -3,8 +3,6 @@ Tests for Probability Calibration module.
 """
 
 import pytest
-import pandas as pd
-import numpy as np
 
 from data.generator import generate_transactions
 from model.feature_engineering import compute_historical_features, fit_transform_features, transform_features, get_feature_matrix, get_target

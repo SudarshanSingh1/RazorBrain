@@ -1,6 +1,5 @@
 import pytest
 import uuid
-import time
 from fastapi.testclient import TestClient
 from api.app import app
 from database.connection import get_session

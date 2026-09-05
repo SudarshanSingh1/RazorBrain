@@ -1,3 +1,4 @@
+from api.management_service import ModelManagementService, PolicyManagementService
 from api.events import InMemoryEventBroker, EventProcessor
 import asyncio
 import os
@@ -42,6 +43,7 @@ class AppState:
         self.broker = None
         self.processor = None
         self.processor_task = None
+        self.metrics_collector = None
 
 
 app_state = AppState()
@@ -118,19 +120,36 @@ async def lifespan(app: FastAPI):
         from model.serving_rule_engine import ServingRuleEngine
         from model.serving_risk_fusion import HybridRiskFusionEngine
         from model.decision_engine_v2 import DecisionPolicyV2, DecisionEngineV2
+        from model.serving_explanation_service import ServingExplanationService
 
-        serving_loader = ServingModelLoader()
+        
+        model_manager = ModelManagementService(db_path=app_state.db_path)
+        active_model = model_manager.get_active_model()
+        if not active_model:
+            raise ValueError("No active model found in registry.")
+        
+        policy_manager = PolicyManagementService(db_path=app_state.db_path)
+        active_policy = policy_manager.get_active_policy()
+        if not active_policy:
+            raise ValueError("No active policy found in registry.")
+
+        serving_loader = ServingModelLoader(artifact_path=active_model["artifact_path"])
+
         # Track validation: ServingModelLoader does not store model_track in metadata
         # by default, but ServingPolicyLoader enforces it explicitly.
         serving_policy = ServingPolicyLoader()
         # ServingPolicyLoader.__init__ raises ValueError if model_track != RAZORPAY_SERVING_MODEL
 
         shap_explainer = ServingSHAPExplainer()
+        explanation_service = ServingExplanationService(explainer=shap_explainer)
 
         serving_rule_engine = ServingRuleEngine()
         hybrid_fusion_engine = HybridRiskFusionEngine()
 
-        decision_policy_v2 = DecisionPolicyV2()
+        
+        policy_config = json.loads(active_policy["configuration"])
+        decision_policy_v2 = DecisionPolicyV2(config_dict=policy_config)
+
         decision_engine_v2 = DecisionEngineV2(
             policy=decision_policy_v2,
             rule_engine=serving_rule_engine,
@@ -140,9 +159,15 @@ async def lifespan(app: FastAPI):
         app_state.serving_loader = serving_loader
         app_state.serving_policy_loader = serving_policy
         app_state.serving_shap_explainer = shap_explainer
+        app_state.serving_explanation_service = explanation_service
         app_state.serving_rule_engine = serving_rule_engine
         app_state.hybrid_fusion_engine = hybrid_fusion_engine
         app_state.decision_engine_v2 = decision_engine_v2
+
+        app_state.active_model_version = active_model["model_version"]
+        app_state.active_policy_version = active_policy["policy_version"]
+        app_state.active_feature_contract_version = active_model["feature_contract_version"]
+
         app_state.serving_model_ready = True
 
         logger.info(
@@ -156,6 +181,11 @@ async def lifespan(app: FastAPI):
             f"all serving transactions will receive REVIEW: {e}"
         )
         app_state.serving_model_ready = False
+
+    # ── Metrics Collector ─────────────────────────────────────────────────────
+    from api.metrics_service import MetricsCollector
+    app_state.metrics_collector = MetricsCollector(db_path=app_state.db_path)
+    logger.info("Metrics collector initialized.")
 
     # ── Real-Time Event Processing ────────────────────────────────────────────
     app_state.broker = InMemoryEventBroker(max_size=1000)
