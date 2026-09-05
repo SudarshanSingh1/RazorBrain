@@ -68,7 +68,7 @@ allow_origins = [origin.strip() for origin in cors_origins_env.split(",")] if co
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
-    allow_credentials=True,
+    allow_credentials=False if allow_origins == ['*'] else True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
