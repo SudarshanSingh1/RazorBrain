@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || 'https://razorbrain.onrender.com',
 });
 
 const defaultApiKey = '9362a0101d51b5e4c4f8ca0d252f740dcb8112651cd90c149c3747d0929761f3';
