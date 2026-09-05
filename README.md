@@ -80,8 +80,6 @@ The system manages the entire transaction fraud lifecycle — from idempotent we
 | **Controls** | TreeSHAP feature explanations, immutable WAL audit ledger, population drift monitoring |
 | **Interfaces** | FastAPI REST API, React 19 + Vite dashboard, Razorpay Test Mode |
 
-> **Important:** This project is configured for **Razorpay Test Mode**. The underlying serving model was trained on restricted IEEE-CIS public fraud data (US e-commerce) with strict causal guarantees and no identity leakage. Financial metrics and SHAP patterns exhibited demonstrate architectural capability and production readiness. Use test credentials in `.env` and never commit secrets.
-
 ---
 
 ## Architecture
