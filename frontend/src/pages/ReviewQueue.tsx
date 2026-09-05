@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getTransactions, getOperationalAnalytics } from '../api';
-import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Inbox, AlertTriangle } from 'lucide-react';
+import { Card, DataTable, Badge, Button, LinkText, MetricCard } from '../components/ui';
+import type { Column } from '../components/ui';
 
 export default function ReviewQueue() {
   const [data, setData] = useState<any[]>([]);
@@ -10,144 +12,184 @@ export default function ReviewQueue() {
   const [loading, setLoading] = useState(true);
   const limit = 20;
   const [distribution, setDistribution] = useState<any>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getOperationalAnalytics().then(res => setDistribution(res.data.review_workload));
   }, []);
 
-
   useEffect(() => {
-    setLoading(true);
+    let active = true;
     getTransactions({ limit, offset: page * limit, decision: 'REVIEW', unresolved_only: true })
       .then(res => {
+        if (!active) return;
         setData(res.data.data);
         setTotal(res.data.total);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+    return () => { active = false; };
   }, [page]);
 
-  
-  const getPriorityBadge = (tier: string) => {
-    if (!tier) return null;
-    switch(tier) {
-      case 'CRITICAL': return <span className="px-2 py-0.5 rounded bg-red-900/40 text-red-400 text-[10px] font-bold">CRITICAL</span>;
-      case 'HIGH': return <span className="px-2 py-0.5 rounded bg-orange-900/40 text-orange-400 text-[10px] font-bold">HIGH</span>;
-      case 'NORMAL': return <span className="px-2 py-0.5 rounded bg-blue-900/40 text-blue-400 text-[10px] font-bold">NORMAL</span>;
-      default: return null;
+  const columns: Column<any>[] = [
+    {
+      header: 'Priority',
+      cell: (row) => {
+        if (!row.priority_tier) return null;
+        switch(row.priority_tier) {
+          case 'CRITICAL': return <Badge variant="danger">CRITICAL</Badge>;
+          case 'HIGH': return <Badge variant="warning">HIGH</Badge>;
+          case 'NORMAL': return <Badge variant="default" className="bg-brand/15 text-brand-bright border-brand/30">NORMAL</Badge>;
+          default: return null;
+        }
+      }
+    },
+    {
+      header: 'Timestamp',
+      cell: (row) => (
+        <span className="font-mono text-text-secondary">
+          {new Date(row.timestamp).toLocaleString(undefined, {
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
+          })}
+        </span>
+      )
+    },
+    {
+      header: 'Transaction ID',
+      cell: (row) => (
+        <LinkText onClick={(e: any) => { e.stopPropagation(); navigate(`/transactions/${row.assessment_id}`); }}>
+          {row.transaction_id}
+        </LinkText>
+      )
+    },
+    {
+      header: 'Amount',
+      className: 'text-right',
+      cell: (row) => (
+        <span className="font-mono">${row.amount?.toFixed(2)}</span>
+      )
+    },
+    {
+      header: 'Probability',
+      cell: (row) => (
+        <span className="font-mono font-medium text-accent-yellow">
+          {row.primary_risk_probability !== null ? row.primary_risk_probability.toFixed(4) : <span className="italic text-text-muted">Unavailable</span>}
+        </span>
+      )
+    },
+    {
+      header: 'Confidence',
+      cell: (row) => {
+        switch(row.confidence_in_probability) {
+          case 'HIGH': return <Badge variant="default" className="bg-brand/15 text-brand-bright border-brand/30">HIGH</Badge>;
+          case 'MEDIUM': return <Badge variant="default">MEDIUM</Badge>;
+          case 'LOW': return <Badge variant="warning">LOW</Badge>;
+          case 'NONE': return <Badge variant="danger">NONE</Badge>;
+          default: return null;
+        }
+      }
+    },
+    {
+      header: 'Action',
+      className: 'text-right',
+      cell: (row) => (
+        <Button 
+          variant="secondary"
+          size="sm"
+          className="border-accent-yellow/40 text-accent-yellow hover:bg-accent-yellow/10"
+          onClick={(e) => { e.stopPropagation(); navigate(`/transactions/${row.assessment_id}`); }}
+        >
+          Investigate
+        </Button>
+      )
     }
-  }
-
-  const getConfBadge = (conf: string) => {
-    switch(conf) {
-      case 'HIGH': return <span className="px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400 text-[10px] font-semibold">HIGH</span>;
-      case 'MEDIUM': return <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold">MEDIUM</span>;
-      case 'LOW': return <span className="px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-400 text-[10px] font-semibold">LOW</span>;
-      case 'NONE': return <span className="px-1.5 py-0.5 rounded bg-rose-900/30 text-rose-400 text-[10px] font-semibold">NONE</span>;
-      default: return null;
-    }
-  }
+  ];
 
   return (
-    <div className="space-y-6">
-      
+    <div className="space-y-4 md:space-y-6 animate-in fade-in duration-500 h-[calc(100vh-10rem)] md:h-[calc(100vh-12rem)] flex flex-col">
       
       {distribution && (
-        <div className="grid grid-cols-4 gap-4 mb-2">
-          <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-xl flex justify-between items-center">
-            <span className="text-sm font-medium text-slate-400">Pending Reviews</span>
-            <span className="text-2xl font-bold text-slate-200">{distribution.pending.toLocaleString()}</span>
-          </div>
-          <div className="bg-[#0f172a] border border-red-900/30 p-4 rounded-xl flex justify-between items-center border-l-4 border-l-red-500">
-            <span className="text-sm font-medium text-slate-400">CRITICAL</span>
-            <span className="text-2xl font-bold text-red-400">{distribution.priority_distribution.critical.toLocaleString()}</span>
-          </div>
-          <div className="bg-[#0f172a] border border-orange-900/30 p-4 rounded-xl flex justify-between items-center border-l-4 border-l-orange-500">
-            <span className="text-sm font-medium text-slate-400">HIGH</span>
-            <span className="text-2xl font-bold text-orange-400">{distribution.priority_distribution.high.toLocaleString()}</span>
-          </div>
-          <div className="bg-[#0f172a] border border-blue-900/30 p-4 rounded-xl flex justify-between items-center border-l-4 border-l-blue-500">
-            <span className="text-sm font-medium text-slate-400">NORMAL</span>
-            <span className="text-2xl font-bold text-blue-400">{distribution.priority_distribution.normal.toLocaleString()}</span>
-          </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            title="Pending Reviews"
+            value={distribution.pending.toLocaleString()}
+            accentColor="blue"
+          />
+          <MetricCard
+            title="Critical Priority"
+            value={distribution.priority_distribution.critical.toLocaleString()}
+            accentColor="red"
+          />
+          <MetricCard
+            title="High Priority"
+            value={distribution.priority_distribution.high.toLocaleString()}
+            accentColor="yellow"
+          />
+          <MetricCard
+            title="Normal Priority"
+            value={distribution.priority_distribution.normal.toLocaleString()}
+            accentColor="blue"
+          />
         </div>
       )}
       
-      <div className="bg-[#0f172a] border border-amber-900/30 rounded-xl overflow-hidden shadow-sm flex flex-col h-[calc(100vh-12rem)] shadow-amber-900/5">
-
+      <Card noPadding className="flex flex-col flex-1 overflow-hidden border-accent-yellow/20 shadow-[0_0_20px_rgba(245,158,11,0.03)]">
         
-        <div className="overflow-x-auto flex-1 custom-scrollbar relative">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0B1120] text-slate-400 uppercase tracking-widest text-[10px] sticky top-0 z-10 shadow-sm border-b border-amber-900/30">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Priority</th>
-                <th className="px-4 py-3 font-semibold">Timestamp</th>
-                <th className="px-4 py-3 font-semibold">Transaction ID</th>
-                <th className="px-4 py-3 font-semibold text-right">Amount</th>
-                <th className="px-4 py-3 font-semibold">Probability</th>
-                <th className="px-4 py-3 font-semibold">Confidence</th>
-                <th className="px-4 py-3 font-semibold text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/40">
-              {loading ? (
-                <tr><td colSpan={6} className="p-12 text-center text-slate-500 animate-pulse">Loading review queue...</td></tr>
-              ) : data.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-20 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-500">
-                      <Inbox size={48} className="mb-4 opacity-30" />
-                      <h3 className="text-base font-medium text-slate-300">No review cases</h3>
-                      <p className="mt-1 text-sm">There are currently no stored REVIEW decisions.</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                data.map((row) => (
-                  <tr key={row.assessment_id} className="hover:bg-amber-900/10 transition-colors group border-l-2 border-l-amber-500">
-                    <td className="px-4 py-3">{getPriorityBadge(row.priority_tier)}</td>
-                    <td className="px-4 py-3 text-slate-300 text-xs font-mono">{new Date(row.timestamp).toLocaleString()}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-500 group-hover:text-slate-300 transition-colors">{row.transaction_id}</td>
-                    <td className="px-4 py-3 text-slate-200 text-right font-mono text-xs">${row.amount?.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-amber-400 font-mono text-xs font-medium">
-                      {row.primary_risk_probability !== null ? row.primary_risk_probability.toFixed(4) : <span className="text-slate-600 italic">Unavailable</span>}
-                    </td>
-                    <td className="px-4 py-3">{getConfBadge(row.confidence_in_probability)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Link to={`/transactions/${row.assessment_id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600/20 text-amber-500 hover:bg-amber-600/30 rounded text-xs font-medium transition-colors border border-amber-900/50">
-                        Investigate
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="p-4 border-b border-accent-yellow/20 bg-bg-card flex items-center gap-2">
+          <AlertTriangle size={16} className="text-accent-yellow" />
+          <h3 className="font-semibold text-text-primary">Human Review Required</h3>
+        </div>
+
+        <div className="flex-1 overflow-hidden relative">
+          <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
+            {loading ? (
+              <div className="p-12 text-center text-text-muted animate-pulse">Loading review queue...</div>
+            ) : data.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-text-muted p-12">
+                <Inbox size={48} className="mb-4 opacity-30 text-accent-green" />
+                <h3 className="text-[16px] font-semibold text-text-primary">No review cases</h3>
+                <p className="mt-1 text-[13px] text-text-secondary">There are currently no stored REVIEW decisions.</p>
+              </div>
+            ) : (
+              <DataTable
+                data={data}
+                columns={columns}
+                keyExtractor={(item) => item.assessment_id}
+                onRowClick={(item) => navigate(`/transactions/${item.assessment_id}`)}
+                className="border-l-2 border-l-accent-yellow/50"
+              />
+            )}
+          </div>
         </div>
         
         {/* Pagination */}
-        <div className="p-3 border-t border-amber-900/30 bg-[#0B1120] flex items-center justify-between text-xs">
-          <div className="text-slate-400">
-            Showing <span className="font-medium text-slate-200">{data.length > 0 ? page * limit + 1 : 0}</span> to <span className="font-medium text-slate-200">{Math.min((page + 1) * limit, total)}</span> of <span className="font-medium text-slate-200">{total.toLocaleString()}</span> records
+        <div className="p-3 md:p-4 border-t border-accent-yellow/20 bg-bg-card-secondary flex items-center justify-between text-[13px]">
+          <div className="text-text-muted">
+            Showing <span className="font-medium text-text-primary">{data.length > 0 ? page * limit + 1 : 0}</span> to <span className="font-medium text-text-primary">{Math.min((page + 1) * limit, total)}</span> of <span className="font-medium text-text-primary">{total.toLocaleString()}</span> records
           </div>
-          <div className="flex gap-1.5">
-            <button 
-              onClick={() => setPage(p => Math.max(0, p - 1))}
+          <div className="flex gap-2">
+            <Button 
+              variant="secondary"
+              size="sm"
+              onClick={() => { setLoading(true); setPage(p => Math.max(0, p - 1)); }}
               disabled={page === 0}
-              className="p-1.5 border border-slate-700/60 rounded hover:bg-slate-800 disabled:opacity-40 text-slate-300 transition-colors"
             >
-              <ChevronLeft size={14}/>
-            </button>
-            <button 
-              onClick={() => setPage(p => p + 1)}
+              <ChevronLeft size={16}/>
+            </Button>
+            <Button 
+              variant="secondary"
+              size="sm"
+              onClick={() => { setLoading(true); setPage(p => p + 1); }}
               disabled={(page + 1) * limit >= total}
-              className="p-1.5 border border-slate-700/60 rounded hover:bg-slate-800 disabled:opacity-40 text-slate-300 transition-colors"
             >
-              <ChevronRight size={14}/>
-            </button>
+              <ChevronRight size={16}/>
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

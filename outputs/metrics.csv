@@ -1,0 +1,6 @@
+mode,threshold,threshold_selection_logic,auc_roc,pr_auc,precision,recall,f1_score,false_positive_rate,specificity,accuracy,true_positives,true_negatives,false_positives,false_negatives,total_samples
+HIGH_PRECISION,0.2322,Maximizes F0.5 score on validation data (weights precision 2x over recall) to minimize false positives,0.7647,0.1725,0.3208,0.1742,0.2258,0.0131,0.9869,0.959,530,84417,1122,2512,88581
+BALANCED,0.1275,Maximizes F1 score on validation data to achieve balanced precision-recall tradeoff,0.7647,0.1725,0.2161,0.3113,0.2551,0.0402,0.9598,0.9376,947,82103,3436,2095,88581
+DEFAULT_0.50,0.5,Standard default classification threshold,0.7647,0.1725,0.5702,0.0227,0.0436,0.0006,0.9994,0.9659,69,85487,52,2973,88581
+POLICY_REVIEW,0.1213,Validation-selected policy threshold for flagging transactions into manual review,0.7647,0.1725,0.1871,0.3669,0.2478,0.0567,0.9433,0.9235,1116,80690,4849,1926,88581
+POLICY_BLOCK,0.2053,Validation-selected policy threshold for automated blocking of high-confidence fraud,0.7647,0.1725,0.3019,0.1946,0.2367,0.016,0.984,0.9569,592,84170,1369,2450,88581

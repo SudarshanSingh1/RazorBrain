@@ -32,7 +32,12 @@ class AppState:
         self.serving_model_ready = False        # Serving stack ready flag
 
         # ── Infrastructure ────────────────────────────────────────────────
-        self.db_path = os.environ.get("RAZORBRAIN_DB_PATH", "razorbrain_api.db")
+        db_env = os.environ.get("RAZORBRAIN_DB_PATH", "razorbrain_api.db")
+        db_dir = os.path.dirname(db_env)
+        if db_dir and not os.path.exists(db_dir):
+            self.db_path = "razorbrain_api.db"
+        else:
+            self.db_path = db_env
         self.is_ready = False
         self.broker = None
         self.processor = None

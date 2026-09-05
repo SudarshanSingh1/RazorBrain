@@ -1,0 +1,16 @@
+rank,feature,mean_abs_shap,relative_importance_pct,sample_size
+1,card_type,0.383263,22.34,2000
+2,avg_customer_amount,0.343234,20.0,2000
+3,email_domain,0.243738,14.21,2000
+4,amount,0.232345,13.54,2000
+5,txns_last_1h,0.137024,7.99,2000
+6,previous_transaction_count,0.101255,5.9,2000
+7,txns_last_24h,0.091988,5.36,2000
+8,hour_of_day,0.066642,3.88,2000
+9,email_domain_missing,0.035524,2.07,2000
+10,card_network,0.029985,1.75,2000
+11,amount_ratio,0.021443,1.25,2000
+12,amount_deviation,0.015472,0.9,2000
+13,day_of_week,0.013854,0.81,2000
+14,log_amount,0.0,0.0,2000
+15,is_new_customer,0.0,0.0,2000

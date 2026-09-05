@@ -1,419 +1,363 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getTransactionDetail, getServingTransactionDetail, recordFeedback } from '../api';
-import { ArrowLeft, ShieldCheck, AlertTriangle, Ban, AlertCircle, Cpu, FileText, Activity, Layers, CheckCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import ServingTransactionDetail from './ServingTransactionDetail';
+import { getTransactionDetail as getTransaction, recordFeedback } from '../api';
+import { 
+  ArrowLeft, ShieldCheck, AlertTriangle, Ban, Info, Cpu, 
+  FileText, Activity, MapPin, SearchCheck
+} from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell 
+} from 'recharts';
+import { Card, CardHeader, CardTitle, Badge, Button } from '../components/ui';
 
 export default function TransactionDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [label, setLabel] = useState<string>('FRAUD');
+  const [notes, setNotes] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
-  const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
-  const [showConfirm, setShowConfirm] = useState<'FRAUD' | 'LEGITIMATE' | null>(null);
+  
+  const [feedbackError, setFeedbackError] = useState<string|null>(null);
+  const [isReviewMode, setIsReviewMode] = useState(false);
 
-  const handleFeedback = async (groundTruth: 'FRAUD' | 'LEGITIMATE') => {
+  useEffect(() => {
+    getTransaction(id as string)
+      .then(res => {
+        setData(res.data);
+        const hasFeedback = !!(res.data.ground_truth || res.data.feedback);
+        setIsReviewMode(res.data.decision === 'REVIEW' && !hasFeedback);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, [id]);
+
+  const handleSubmitFeedback = async () => {
     setSubmittingFeedback(true);
     setFeedbackError(null);
-    setFeedbackSuccess(null);
     try {
-      const res = await recordFeedback(id!, groundTruth);
-      setData((prev: any) => ({
-        ...prev,
-        ground_truth: res.data.ground_truth,
-        label_source: res.data.label_source,
-        evaluation_outcome: res.data.evaluation_outcome,
-        labeled_at: res.data.labeled_at
-      }));
-      setFeedbackSuccess(`Successfully recorded ${groundTruth} as ground truth.`);
-      setShowConfirm(null);
+      await recordFeedback(id as string, label as any, notes);
+      setIsReviewMode(false);
+      const res = await getTransaction(id as string);
+      setData(res.data);
     } catch (err: any) {
-      setFeedbackError(err.response?.data?.detail || err.message || 'Failed to submit feedback.');
+      const isDuplicate = 
+        err.response?.status === 409 || 
+        err.response?.data?.error?.code === 'HTTP_409' || 
+        (err.response?.data?.error?.message || '').includes('already exists');
+
+      if (isDuplicate) {
+        setIsReviewMode(false);
+        const res = await getTransaction(id as string);
+        setData(res.data);
+        return;
+      }
+      const msg = err.response?.data?.error?.message || err.response?.data?.detail || err.message;
+      setFeedbackError(msg || "Failed to record feedback");
     } finally {
       setSubmittingFeedback(false);
     }
   };
 
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | boolean>(false);
-
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    const isServing = id.includes('pay_') || id.startsWith('order_');
-    
-    if (isServing) {
-      getServingTransactionDetail(id)
-        .then(res => {
-          setData({ ...res.data, isServing: true });
-          setLoading(false);
-        })
-        .catch(err => {
-          setError(err.response?.data?.detail || err.message || "Failed to load serving assessment.");
-          setLoading(false);
-        });
-    } else {
-      getTransactionDetail(id)
-        .then(res => {
-          setData({ ...res.data, isServing: false });
-          setLoading(false);
-        })
-        .catch(err => {
-          setError(err.response?.data?.detail || err.message || "Unable to load investigation details.");
-          setLoading(false);
-        });
-    }
-  }, [id]);
-
-  if (loading) return <div className="text-slate-400 animate-pulse p-6">Loading assessment details...</div>;
-  if (error || !data) return <div className="text-red-400 border border-red-900 bg-red-950/20 p-4 rounded-md m-6">{typeof error === 'string' ? error : "Unable to load investigation details."}</div>;
-
-  if (data.isServing) {
-    return <ServingTransactionDetail data={data} />;
-  }
+  if (loading) return (
+    <div className="flex h-[calc(100vh-12rem)] items-center justify-center space-x-2">
+      <div className="w-4 h-4 bg-brand rounded-full animate-bounce"></div>
+      <div className="w-4 h-4 bg-brand rounded-full animate-bounce delay-75"></div>
+      <div className="w-4 h-4 bg-brand rounded-full animate-bounce delay-150"></div>
+    </div>
+  );
+  if (error || !data) return <div className="text-accent-red border border-accent-red bg-accent-red/20 p-4 rounded-md mt-6">Unable to load transaction details.</div>;
 
   const {
-    assessment_id, transaction_id, timestamp, amount, customer_id, merchant_id, payment_method,
-    primary_risk_probability, confidence_in_probability, decision, decision_reason,
-    rule_evidence, model_evidence, context_data, explanation_text, provider, grounded
+    transaction_id, timestamp, amount, decision, primary_risk_probability, 
+    confidence_in_probability, explanation_text, provider, grounded,
+    rule_evidence, model_evidence, context_data
   } = data;
 
-  const shapData = (model_evidence || []).map((ev: any) => ({
-    name: ev.feature_name,
-    contribution: ev.shap_contribution
-  })).sort((a: any, b: any) => Math.abs(b.contribution) - Math.abs(a.contribution));
+  const feedback = data.feedback || (data.ground_truth ? {
+    ground_truth_label: data.ground_truth,
+    timestamp: data.labeled_at,
+    reviewer_notes: data.notes,
+    label_source: data.label_source,
+    outcome: data.evaluation_outcome
+  } : null);
 
-  const getDecisionIcon = (decision: string) => {
+  const getDecisionBadge = (decision: string) => {
     switch(decision) {
-      case 'ALLOW': return <ShieldCheck className="text-emerald-500" size={32}/>;
-      case 'REVIEW': return <AlertTriangle className="text-amber-500" size={32}/>;
-      case 'BLOCK': return <Ban className="text-rose-500" size={32}/>;
-      default: return <AlertCircle className="text-slate-500" size={32}/>;
-    }
-  };
-  
-  const getDecisionColor = (decision: string) => {
-    switch(decision) {
-      case 'ALLOW': return 'text-emerald-500';
-      case 'REVIEW': return 'text-amber-500';
-      case 'BLOCK': return 'text-rose-500';
-      default: return 'text-slate-500';
+      case 'ALLOW': return <Badge variant="success" className="text-[13px] px-3 py-1 font-bold"><ShieldCheck size={16} className="mr-1.5"/> ALLOW</Badge>;
+      case 'REVIEW': return <Badge variant="warning" className="text-[13px] px-3 py-1 font-bold"><AlertTriangle size={16} className="mr-1.5"/> REVIEW</Badge>;
+      case 'BLOCK': return <Badge variant="danger" className="text-[13px] px-3 py-1 font-bold"><Ban size={16} className="mr-1.5"/> BLOCK</Badge>;
+      default: return null;
     }
   };
 
-  const getDecisionBg = (decision: string) => {
-    switch(decision) {
-      case 'ALLOW': return 'bg-emerald-950/30 border-emerald-900/50';
-      case 'REVIEW': return 'bg-amber-950/30 border-amber-900/50';
-      case 'BLOCK': return 'bg-rose-950/30 border-rose-900/50';
-      default: return 'bg-slate-900 border-slate-800';
-    }
-  };
-
-  const getRuleIcon = (severity: string) => {
-    if (severity === 'HIGH') return <Ban className="text-rose-500" size={16}/>;
-    if (severity === 'MEDIUM') return <AlertTriangle className="text-amber-500" size={16}/>;
-    return <AlertCircle className="text-blue-500" size={16}/>;
-  };
+  const shapData = model_evidence && Object.keys(model_evidence.feature_contributions || {}).length > 0 
+    ? Object.entries(model_evidence.feature_contributions).map(([k, v]) => ({ name: k, contribution: v })).sort((a,b) => Math.abs(b.contribution as number) - Math.abs(a.contribution as number))
+    : [];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <Link to="/transactions" className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-300 text-sm mb-3 transition-colors">
-            <ArrowLeft size={14}/> Back to Explorer
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-100 font-mono tracking-tight flex items-center gap-3">
-            Investigation: {transaction_id}
-          </h1>
-          <p className="text-slate-500 mt-1 text-sm">Assessment ID: {assessment_id}</p>
+    <div className="animate-in fade-in duration-500">
+      
+      {/* Header Area */}
+      <div className="mb-6 flex items-center justify-between">
+        <Link to="/transactions" className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors text-[13px] font-medium">
+          <ArrowLeft size={16} /> Back to Transactions
+        </Link>
+        <div className="text-[11px] text-text-muted bg-bg-card border border-border-subtle px-2.5 py-1 rounded-[6px] flex items-center gap-2">
+          Assessment ID: <span className="font-mono text-text-secondary">{id}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column */}
+        {/* Left Col: Context */}
         <div className="space-y-6">
-          {/* A. DECISION SUMMARY */}
-          <div className={`border rounded-xl p-6 ${getDecisionBg(decision)}`}>
-            <div className="flex items-start justify-between">
+          <Card>
+            <div className="flex items-start justify-between mb-6">
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Final Decision</p>
-                <p className={`text-4xl font-bold ${getDecisionColor(decision)}`}>{decision || 'UNKNOWN'}</p>
+                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1">Transaction ID</p>
+                <h1 className="text-[18px] font-mono text-text-primary tracking-tight">{transaction_id}</h1>
               </div>
-              <div className="p-3 bg-black/20 rounded-xl">
-                {getDecisionIcon(decision)}
+              <div className="text-right">
+                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1">Amount</p>
+                <h2 className="text-[24px] font-bold text-text-primary leading-none">${amount?.toFixed(2)}</h2>
               </div>
             </div>
-            
-            <div className="mt-6 pt-6 border-t border-slate-700/30 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-400">Primary Risk Probability</span>
-                <span className="text-sm font-medium text-slate-200">
-                  {primary_risk_probability !== null && primary_risk_probability !== undefined 
-                    ? `${(primary_risk_probability * 100).toFixed(2)}%` 
-                    : <span className="text-slate-500 italic">Unavailable</span>}
+
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center justify-between p-3.5 bg-bg-card-secondary border border-border-subtle rounded-[10px]">
+                <span className="text-[12px] text-text-secondary font-medium">Model Probability</span>
+                <span className="font-mono font-semibold text-text-primary">
+                  {primary_risk_probability !== null ? primary_risk_probability.toFixed(4) : <span className="italic text-text-muted">Unavailable</span>}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-400">Confidence</span>
-                <span className="text-sm font-medium text-slate-200">
-                  {confidence_in_probability ? confidence_in_probability.replace('_', ' ').toUpperCase() : <span className="text-slate-500 italic">Unavailable</span>}
-                </span>
+              <div className="flex items-center justify-between p-3.5 bg-bg-card-secondary border border-border-subtle rounded-[10px]">
+                <span className="text-[12px] text-text-secondary font-medium">Confidence Level</span>
+                <Badge variant={confidence_in_probability === 'HIGH' ? 'default' : confidence_in_probability === 'LOW' || confidence_in_probability === 'NONE' ? 'danger' : 'secondary'} className={confidence_in_probability === 'HIGH' ? 'bg-brand/15 text-brand-bright border-brand/30' : ''}>
+                  {confidence_in_probability}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-border-subtle text-[12px] flex flex-col gap-2 text-text-secondary">
+              <div className="flex justify-between">
+                <span>Timestamp</span>
+                <span className="font-mono">{new Date(timestamp).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-400">Evidence Completeness</span>
-                <span className="text-sm font-medium text-emerald-400 flex items-center gap-1"><CheckCircle size={14}/> Recorded</span>
+                <span>Location</span>
+                <span className="flex items-center gap-1 font-medium"><MapPin size={12}/> {context_data?.ip_country || 'Unknown'}</span>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* F. TRANSACTION CONTEXT */}
-          <div className="bg-[#0f172a] border border-slate-800/60 p-5 rounded-xl shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2"><Layers size={16}/> Transaction Context</h2>
-            <div className="space-y-3">
-              <div className="flex justify-between"><span className="text-xs text-slate-500">Timestamp</span><span className="text-xs text-slate-300">{new Date(timestamp).toLocaleString()}</span></div>
-              <div className="flex justify-between"><span className="text-xs text-slate-500">Amount</span><span className="text-xs font-mono text-slate-200">${amount?.toFixed(2) || 'Unavailable'}</span></div>
-              <div className="flex justify-between"><span className="text-xs text-slate-500">Currency</span><span className="text-xs font-mono text-slate-300">{context_data?.currency || 'Unavailable'}</span></div>
-              <div className="flex justify-between"><span className="text-xs text-slate-500">Customer ID</span><span className="text-xs font-mono text-slate-300">{customer_id || 'Unavailable'}</span></div>
-              <div className="flex justify-between"><span className="text-xs text-slate-500">Merchant ID</span><span className="text-xs font-mono text-slate-300">{merchant_id || 'Unavailable'}</span></div>
-              <div className="flex justify-between"><span className="text-xs text-slate-500">Payment Method</span><span className="text-xs text-slate-300">{payment_method || 'Unavailable'}</span></div>
-              <div className="flex justify-between"><span className="text-xs text-slate-500">IP / Location</span><span className="text-xs text-slate-300">{context_data?.ip_address || 'Unavailable'}</span></div>
+          <Card>
+            <CardHeader>
+              <CardTitle icon={<Info size={16} />}>Final Decision</CardTitle>
+            </CardHeader>
+            <div className="flex items-center justify-center p-6 border border-border-subtle rounded-[10px] bg-bg-card-secondary">
+              {getDecisionBadge(decision)}
             </div>
-          </div>
 
-          {/* G. AUDIT INFORMATION */}
-          <div className="bg-[#0f172a] border border-slate-800/60 p-5 rounded-xl shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4">Audit Information</h2>
-            <div className="space-y-3">
-              <div className="flex justify-between"><span className="text-xs text-slate-500">Persistence Status</span><span className="text-xs text-emerald-500">Persisted</span></div>
-              <div className="flex justify-between"><span className="text-xs text-slate-500">Explanation Provider</span><span className="text-xs text-slate-300">{provider || 'Unavailable'}</span></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* B. WHY THIS DECISION? */}
-          <div className={`border p-6 rounded-xl shadow-sm ${getDecisionBg(decision)}`}>
-            <h2 className={`text-sm font-bold uppercase tracking-wider mb-2 flex items-center gap-2 ${getDecisionColor(decision)}`}>
-              {getDecisionIcon(decision)}
-              Why this transaction was {decision === 'ALLOW' ? 'allowed' : decision === 'REVIEW' ? 'reviewed' : decision === 'BLOCK' ? 'blocked' : 'flagged'}
-            </h2>
-            <p className="text-slate-300 text-sm mt-4 bg-black/20 p-4 rounded-lg font-medium border border-white/5">
-              {decision_reason || <span className="italic text-slate-500">No deterministic decision reason recorded by the engine.</span>}
-            </p>
-          </div>
-          
-          
-          {/* F. HUMAN REVIEW / FEEDBACK */}
-          {decision === 'REVIEW' && (
-            <div className="bg-[#0f172a] border border-blue-900/30 shadow-blue-900/5 p-6 rounded-xl shadow-sm mb-6">
-              
-              {data.review_priority && (
-                <div className="mb-6 pb-6 border-b border-slate-800">
-                  <h2 className="text-sm font-semibold text-amber-500 uppercase tracking-wider flex items-center gap-2 mb-3">
-                    <AlertTriangle size={16}/> Operational Review Priority
-                  </h2>
-                  <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800/80">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                            data.review_priority.tier === 'CRITICAL' ? 'bg-red-900/40 text-red-400' :
-                            data.review_priority.tier === 'HIGH' ? 'bg-orange-900/40 text-orange-400' :
-                            'bg-blue-900/40 text-blue-400'
-                          }`}>
-                            {data.review_priority.tier}
-                          </span>
-                        </div>
-                        <ul className="list-disc pl-5 text-sm text-slate-300 space-y-1">
-                          {data.review_priority.reasons.map((r: string, idx: number) => (
-                            <li key={idx}>{r}</li>
-                          ))}
-                        </ul>
-                        <p className="text-xs text-slate-500 mt-3">
-                          This priority affects review ordering only. It does not change the RazorBrain decision.
-                        </p>
-                      </div>
-                    </div>
+            {/* FEEDBACK UI */}
+            {feedback ? (
+              <div className="mt-4 p-4 border border-accent-green/30 bg-accent-green/5 rounded-[10px]">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-accent-green">
+                    <SearchCheck size={16} />
+                    <span className="text-[13px] font-semibold tracking-wider uppercase">Feedback Recorded</span>
                   </div>
+                  <span className="font-mono text-[10px] text-text-muted">{new Date(feedback.timestamp).toLocaleString()}</span>
                 </div>
-              )}
-
-              <div className="flex items-center justify-between mb-4">
-
-                <h2 className="text-sm font-semibold text-blue-400 uppercase tracking-wider flex items-center gap-2"><CheckCircle size={16}/> Human Review Outcome</h2>
+                <div className="flex justify-between text-[13px] mt-3">
+                  <span className="text-text-secondary font-medium">Ground Truth:</span>
+                  <span className={`font-bold ${feedback.ground_truth_label === 'FRAUD' ? 'text-accent-red' : 'text-accent-green'}`}>{feedback.ground_truth_label}</span>
+                </div>
+                <div className="mt-2 text-[12px] text-text-secondary border-t border-accent-green/20 pt-2 italic">
+                  "{feedback.reviewer_notes || 'No notes provided'}"
+                </div>
               </div>
-              
-              {data.ground_truth ? (
-                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div><span className="text-slate-500 block text-xs">Ground Truth</span><span className={`font-semibold ${data.ground_truth === 'FRAUD' ? 'text-red-400' : 'text-emerald-400'}`}>{data.ground_truth}</span></div>
-                    <div><span className="text-slate-500 block text-xs">Source</span><span className="text-slate-300">{data.label_source}</span></div>
-                    <div><span className="text-slate-500 block text-xs">Evaluation</span><span className="text-slate-300">{data.evaluation_outcome}</span></div>
-                    <div><span className="text-slate-500 block text-xs">Labeled At</span><span className="text-slate-300">{new Date(data.labeled_at).toLocaleString()}</span></div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-slate-400">
-                    Recording this outcome adds ground-truth feedback for evaluation. It does not change the original RazorBrain decision.
-                  </p>
-                  
-                  {feedbackError && <div className="text-red-400 text-sm bg-red-950/20 p-3 rounded border border-red-900">{feedbackError}</div>}
-                  {feedbackSuccess && <div className="text-emerald-400 text-sm bg-emerald-950/20 p-3 rounded border border-emerald-900">{feedbackSuccess}</div>}
-
-                  {!showConfirm ? (
-                    <div className="flex gap-4">
-                      <button 
-                        onClick={() => setShowConfirm('FRAUD')}
-                        disabled={submittingFeedback}
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50"
-                      >
-                        Confirm Fraud
-                      </button>
-                      <button 
-                        onClick={() => setShowConfirm('LEGITIMATE')}
-                        disabled={submittingFeedback}
-                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50"
-                      >
-                        Confirm Legitimate
-                      </button>
-                    </div>
+            ) : (
+              decision === 'REVIEW' && (
+                <div className="mt-4">
+                  {!isReviewMode ? (
+                    <Button fullWidth onClick={() => setIsReviewMode(true)}>
+                      Record Review Decision
+                    </Button>
                   ) : (
-                    <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg">
-                      <p className="text-slate-300 text-sm mb-4">
-                        You are about to record <strong className={showConfirm === 'FRAUD' ? 'text-red-400' : 'text-emerald-400'}>{showConfirm}</strong> as the ground-truth outcome for this assessment. This will be used in evaluation analytics and cannot currently be changed.
-                      </p>
-                      <div className="flex gap-3">
-                        <button 
-                          onClick={() => handleFeedback(showConfirm)}
-                          disabled={submittingFeedback}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 text-sm"
+                    <div className="p-4 border border-brand/30 bg-brand/5 rounded-[10px] space-y-4">
+                      <h3 className="text-[13px] font-semibold text-brand-bright uppercase tracking-wider mb-2">Manual Review</h3>
+                      
+                      {feedbackError && <div className="text-[12px] text-accent-red p-2 bg-accent-red/10 rounded border border-accent-red/30">{feedbackError}</div>}
+                      
+                      <div>
+                        <label className="block text-[12px] text-text-secondary mb-1.5 font-medium">True Label</label>
+                        <select 
+                          value={label} 
+                          onChange={(e) => setLabel(e.target.value)}
+                          className="w-full bg-[rgba(9,24,45,0.8)] border border-[rgba(120,150,210,0.2)] rounded-[8px] px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand focus:shadow-[0_0_0_3px_rgba(47,128,237,0.12)]"
                         >
-                          {submittingFeedback ? 'Submitting...' : 'Confirm'}
-                        </button>
-                        <button 
-                          onClick={() => setShowConfirm(null)}
+                          <option value="FRAUD">FRAUD (Reject)</option>
+                          <option value="LEGITIMATE">LEGITIMATE (Approve)</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-[12px] text-text-secondary mb-1.5 font-medium">Reviewer Notes</label>
+                        <textarea 
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          placeholder="Provide rationale for your decision..."
+                          className="w-full bg-[rgba(9,24,45,0.8)] border border-[rgba(120,150,210,0.2)] rounded-[8px] px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand focus:shadow-[0_0_0_3px_rgba(47,128,237,0.12)] min-h-[80px]"
+                        />
+                      </div>
+                      
+                      <div className="flex gap-3 pt-2">
+                        <Button 
+                          onClick={handleSubmitFeedback} 
                           disabled={submittingFeedback}
-                          className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 text-sm"
+                          className="flex-1"
+                        >
+                          {submittingFeedback ? 'Submitting...' : 'Submit Resolution'}
+                        </Button>
+                        <Button 
+                          variant="ghost"
+                          onClick={() => setIsReviewMode(false)}
+                          disabled={submittingFeedback}
+                          className="px-6 border border-border-subtle bg-bg-card-secondary"
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </Card>
+        </div>
 
-          {/* E. AI / EXPLANATION SECTION */}
+        {/* Right Col: Evidence */}
+        <div className="lg:col-span-2 space-y-6">
 
-          <div className="bg-[#0f172a] border border-indigo-900/30 shadow-indigo-900/5 p-6 rounded-xl shadow-sm">
+          {/* AI / EXPLANATION SECTION */}
+          <Card className="border-brand/40 shadow-[0_0_15px_rgba(47,128,237,0.05)] bg-bg-card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-2"><Cpu size={16}/> Engine Explanation</h2>
+              <CardTitle icon={<Cpu size={16} />}>Engine Explanation</CardTitle>
               {provider && (
-                <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${grounded ? 'bg-indigo-900/40 text-indigo-400 border border-indigo-800/50' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
+                <Badge variant={grounded ? 'default' : 'secondary'} className={grounded ? 'bg-brand/15 text-brand-bright border-brand/30' : ''}>
                   {provider === 'deterministic_fallback' ? 'Deterministic Fallback' : provider}
-                </span>
+                </Badge>
               )}
             </div>
             {explanation_text ? (
-              <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed bg-[#020617] p-4 rounded-lg border border-slate-800/60 font-serif tracking-wide">
+              <p className="text-[13px] text-text-primary whitespace-pre-wrap leading-relaxed bg-[rgba(9,24,45,0.6)] p-4 rounded-lg border border-border-subtle tracking-wide relative">
                 {explanation_text}
               </p>
             ) : (
-              <div className="bg-[#020617] p-4 rounded-lg border border-slate-800/60 text-slate-500 text-sm italic">
+              <div className="bg-[rgba(9,24,45,0.6)] p-4 rounded-lg border border-border-subtle text-text-muted text-[13px] italic">
                 No stored explanation generated for this assessment.
               </div>
             )}
-            {provider && <p className="text-[10px] text-indigo-500/70 mt-3 uppercase tracking-widest font-bold">{grounded ? 'Grounded explicitly in stored evidence' : 'Provider status unverified'}</p>}
-          </div>
+            {provider && <p className="text-[10px] text-brand-bright/70 mt-3 uppercase tracking-widest font-bold">{grounded ? 'Grounded explicitly in stored evidence' : 'Provider status unverified'}</p>}
+          </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* C. RULE EVIDENCE */}
-            <div className="bg-[#0f172a] border border-slate-800/60 p-5 rounded-xl shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2"><FileText size={16}/> Rule Evidence</h2>
-              <div className="space-y-3">
+            {/* RULE EVIDENCE */}
+            <Card>
+              <CardHeader>
+                <CardTitle icon={<FileText size={16}/>}>Rule Evidence</CardTitle>
+              </CardHeader>
+              <div className="space-y-2.5">
                 {!rule_evidence || rule_evidence.length === 0 ? (
-                  <p className="text-slate-500 text-sm py-4 italic border border-slate-800 border-dashed rounded-lg text-center">No rules triggered.</p>
+                  <p className="text-text-muted text-[13px] py-4 italic border border-border-subtle border-dashed rounded-lg text-center bg-bg-card-secondary/50">No rules triggered.</p>
                 ) : (
-                  rule_evidence.map((rule: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between p-3 border border-slate-800/60 bg-[#0B1120] rounded-lg">
-                      <div className="flex items-center gap-2.5">
-                        {getRuleIcon(rule.severity)}
-                        <span className="text-sm font-medium text-slate-300">{rule.rule_id}</span>
+                  rule_evidence.map((rule: any, i: number) => {
+                    let variant: 'danger' | 'warning' | 'default' = 'default';
+                    let iconColor = 'text-brand';
+                    if (rule.severity === 'HIGH') {
+                      variant = 'danger';
+                      iconColor = 'text-accent-red';
+                    } else if (rule.severity === 'MEDIUM') {
+                      variant = 'warning';
+                      iconColor = 'text-accent-yellow';
+                    }
+                    return (
+                      <div key={i} className="flex items-center justify-between p-3 border border-border-subtle bg-bg-card-secondary rounded-[8px]">
+                        <div className="flex items-center gap-2.5">
+                          <AlertTriangle size={14} className={iconColor} />
+                          <span className="text-[13px] font-medium text-text-primary">{rule.rule_id}</span>
+                        </div>
+                        <Badge variant={variant}>{rule.severity}</Badge>
                       </div>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider ${
-                      rule.severity === 'HIGH' ? 'bg-rose-900/40 text-rose-400' :
-                      rule.severity === 'MEDIUM' ? 'bg-amber-900/40 text-amber-400' : 'bg-blue-900/40 text-blue-400'
-                    }`}>{rule.severity}</span>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
-            </div>
+            </Card>
 
             {/* Behavioral */}
-            <div className="bg-[#0f172a] border border-slate-800/60 p-5 rounded-xl shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2"><Activity size={16}/> Behavioral Signals</h2>
-              <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-xs">
-                <div><p className="text-slate-500">Account Age</p><p className="text-slate-200 font-medium">{context_data?.customer_account_age_days ?? <span className="text-slate-600 italic font-normal">Unavailable</span>}</p></div>
-                <div><p className="text-slate-500">Amt Deviation</p><p className="text-slate-200 font-medium">{context_data?.amount_deviation !== undefined ? context_data.amount_deviation.toFixed(2) : <span className="text-slate-600 italic font-normal">Unavailable</span>}</p></div>
-                <div><p className="text-slate-500">Prev Txns</p><p className="text-slate-200 font-medium">{context_data?.previous_transaction_count ?? <span className="text-slate-600 italic font-normal">Unavailable</span>}</p></div>
-                <div><p className="text-slate-500">Prev Fraud</p><p className="text-slate-200 font-medium">{context_data?.previous_fraud_count ?? <span className="text-slate-600 italic font-normal">Unavailable</span>}</p></div>
-                <div><p className="text-slate-500">Txns (24h)</p><p className="text-slate-200 font-medium">{context_data?.txns_last_24h ?? <span className="text-slate-600 italic font-normal">Unavailable</span>}</p></div>
-                <div><p className="text-slate-500">Merchant Fraud</p><p className="text-slate-200 font-medium">{context_data?.merchant_fraud_rate !== undefined ? context_data.merchant_fraud_rate.toFixed(4) : <span className="text-slate-600 italic font-normal">Unavailable</span>}</p></div>
+            <Card>
+              <CardHeader>
+                <CardTitle icon={<Activity size={16}/>}>Behavioral Signals</CardTitle>
+              </CardHeader>
+              <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-[12px]">
+                <div><p className="text-text-muted mb-0.5">Account Age</p><p className="text-text-primary font-medium">{context_data?.customer_account_age_days ?? <span className="text-text-secondary italic font-normal">Unavailable</span>}</p></div>
+                <div><p className="text-text-muted mb-0.5">Amt Deviation</p><p className="text-text-primary font-medium">{context_data?.amount_deviation !== undefined ? context_data.amount_deviation.toFixed(2) : <span className="text-text-secondary italic font-normal">Unavailable</span>}</p></div>
+                <div><p className="text-text-muted mb-0.5">Prev Txns</p><p className="text-text-primary font-medium">{context_data?.previous_transaction_count ?? <span className="text-text-secondary italic font-normal">Unavailable</span>}</p></div>
+                <div><p className="text-text-muted mb-0.5">Prev Fraud</p><p className="text-text-primary font-medium">{context_data?.previous_fraud_count ?? <span className="text-text-secondary italic font-normal">Unavailable</span>}</p></div>
+                <div><p className="text-text-muted mb-0.5">Txns (24h)</p><p className="text-text-primary font-medium">{context_data?.txns_last_24h ?? <span className="text-text-secondary italic font-normal">Unavailable</span>}</p></div>
+                <div><p className="text-text-muted mb-0.5">Merchant Fraud</p><p className="text-text-primary font-medium">{context_data?.merchant_fraud_rate !== undefined ? context_data.merchant_fraud_rate.toFixed(4) : <span className="text-text-secondary italic font-normal">Unavailable</span>}</p></div>
               </div>
-            </div>
+            </Card>
 
           </div>
 
-          {/* D. MODEL EVIDENCE */}
-          <div className="bg-[#0f172a] border border-slate-800/60 p-5 rounded-xl shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4">Model Evidence (SHAP)</h2>
+          {/* MODEL EVIDENCE */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Model Evidence (SHAP)</CardTitle>
+            </CardHeader>
             {shapData.length > 0 ? (
-              <div className="h-64 w-full">
+              <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={shapData} layout="vertical" margin={{ top: 5, right: 30, left: 120, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                    <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                    <XAxis type="number" stroke="#9eacc4" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis dataKey="name" type="category" stroke="#9eacc4" fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip 
-                      cursor={{ fill: '#1e293b' }}
-                      contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', color: '#e2e8f0', borderRadius: '8px' }}
+                      cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                      contentStyle={{ backgroundColor: '#0d1d33', borderColor: 'rgba(110,150,210,0.16)', color: '#f5f8ff', borderRadius: '8px' }}
                       formatter={(val: any) => val.toFixed(4)}
                     />
                     <Bar dataKey="contribution" radius={4} barSize={16}>
                       {
                         shapData.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={entry.contribution > 0 ? '#f43f5e' : '#10b981'} />
+                          <Cell key={`cell-${index}`} fill={entry.contribution > 0 ? '#ff5c70' : '#35d39e'} />
                         ))
                       }
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-[10px] text-slate-500 italic max-w-xl">Positive contributions push toward higher risk probability. Negative contributions push toward lower risk. SHAP values do not explicitly decide ALLOW/BLOCK.</p>
-                  <div className="flex items-center gap-4 text-[10px] uppercase font-semibold">
-                    <div className="flex items-center gap-1.5 text-rose-500"><span className="w-2 h-2 rounded bg-rose-500"></span> Positive contribution</div>
-                    <div className="flex items-center gap-1.5 text-emerald-500"><span className="w-2 h-2 rounded bg-emerald-500"></span> Negative contribution</div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between mt-4 gap-3">
+                  <p className="text-[11px] text-text-muted italic max-w-xl">Positive contributions push toward higher risk probability. Negative contributions push toward lower risk. SHAP values do not explicitly decide ALLOW/BLOCK.</p>
+                  <div className="flex items-center gap-4 text-[10px] uppercase font-bold tracking-wider">
+                    <div className="flex items-center gap-1.5 text-accent-red"><span className="w-2.5 h-2.5 rounded-sm bg-accent-red"></span> Positive contribution</div>
+                    <div className="flex items-center gap-1.5 text-accent-green"><span className="w-2.5 h-2.5 rounded-sm bg-accent-green"></span> Negative contribution</div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="py-8 flex items-center justify-center text-slate-500 text-sm italic border border-slate-800 border-dashed rounded-lg">
+              <div className="py-8 flex items-center justify-center text-text-muted text-[13px] italic border border-border-subtle border-dashed rounded-lg bg-bg-card-secondary/30">
                 No stored SHAP evidence is available for this assessment.
               </div>
             )}
-          </div>
-
+          </Card>
         </div>
       </div>
     </div>

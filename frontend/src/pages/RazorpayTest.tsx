@@ -1,45 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Card, CardHeader, CardTitle, Button, Badge } from '../components/ui';
+import { CreditCard, AlertTriangle, Play, ShieldAlert, CheckCircle, SearchCheck } from 'lucide-react';
+import { createTestOrder, assessTestPayment } from '../services/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_KEY = import.meta.env.VITE_API_KEY || 'dev-api-key-123';
-const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TXQNLlr2VVcfZi';
+
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 export function RazorpayTest() {
-  const [amount, setAmount] = useState('500');
+  const [amount, setAmount] = useState('100.00');
   const [currency, setCurrency] = useState('INR');
-  const [receipt] = useState('test_receipt_1');
-  const [customerId, setCustomerId] = useState('test_user@example.com');
-  const [merchantId, setMerchantId] = useState('m_internal_1');
-  
-  const [order, setOrder] = useState<any>(null);
-const [assessment, setAssessment] = useState<any>(null);
-
-  // Phase 40: Generate a persistent first-party session identifier
-  useEffect(() => {
-    if (!sessionStorage.getItem("rzp_test_session_id")) {
-      const newSessionId = "sess_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      sessionStorage.setItem("rzp_test_session_id", newSessionId);
-    }
-  }, []);
-
+  const [customerId, setCustomerId] = useState('cust_test123@example.com');
+  const [merchantId, setMerchantId] = useState('merch_test1');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  const [order, setOrder] = useState<any>(null);
   const [paymentId, setPaymentId] = useState('');
-
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
+  const [assessment, setAssessment] = useState<any>(null);
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,65 +34,36 @@ const [assessment, setAssessment] = useState<any>(null);
     setOrder(null);
     setAssessment(null);
     setPaymentId('');
-    
-    try {
-const response = await fetch(`${API_URL}/razorpay/test/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': API_KEY,
-          'X-Session-ID': sessionStorage.getItem("rzp_test_session_id") || "",
-        },
 
-        body: JSON.stringify({
-          amount: Math.round(parseFloat(amount) * 100), // Convert to subunits
-          currency,
-          receipt,
-          notes: {
-            customer_id: customerId,
-            merchant_id: merchantId,
-          }
-        }),
+    try {
+      const subunitAmount = Math.round(parseFloat(amount) * 100);
+      const res = await createTestOrder({
+        amount: subunitAmount,
+        currency: currency,
+        receipt: `rcpt_${Date.now()}`,
+        notes: {
+          customer_id: customerId,
+          merchant_id: merchantId
+        }
       });
-      
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.detail || data.error?.message || 'Order creation failed');
-      }
-      
-      setOrder(data);
+      setOrder(res.data);
     } catch (err: any) {
-      setError(err.message);
+      const msg = err.response?.data?.error?.message || err.response?.data?.detail || err.message;
+      setError(msg || "Failed to create order");
     } finally {
       setLoading(false);
     }
   };
 
-  const performAssessment = async (pid: string) => {
+  const performAssessment = async (payId: string) => {
     setLoading(true);
     setError(null);
     try {
-const response = await fetch(`${API_URL}/razorpay/test/assess`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': API_KEY,
-          'X-Session-ID': sessionStorage.getItem("rzp_test_session_id") || "",
-        },
-
-        body: JSON.stringify({
-          payment_id: pid
-        }),
-      });
-      
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.detail || data.error?.message || 'Assessment failed');
-      }
-      
-      setAssessment(data);
+      const res = await assessTestPayment(payId);
+      setAssessment(res.data);
     } catch (err: any) {
-      setError(err.message);
+      const msg = err.response?.data?.error?.message || err.response?.data?.detail || err.message;
+      setError(msg || "Failed to assess payment");
     } finally {
       setLoading(false);
     }
@@ -132,7 +89,7 @@ const response = await fetch(`${API_URL}/razorpay/test/assess`, {
     }
 
     if (!RAZORPAY_KEY_ID) {
-      setError("Razorpay Test Key ID is not configured in the frontend (missing VITE_RAZORPAY_KEY_ID).");
+      setError("Razorpay Test Key ID is not configured (missing VITE_RAZORPAY_KEY_ID).");
       return;
     }
 
@@ -152,7 +109,7 @@ const response = await fetch(`${API_URL}/razorpay/test/assess`, {
         customer_id: customerId,
       },
       theme: {
-        color: "#4f46e5"
+        color: "#2f80ed"
       },
       handler: async function (response: any) {
         setPaymentId(response.razorpay_payment_id);
@@ -172,119 +129,136 @@ const response = await fetch(`${API_URL}/razorpay/test/assess`, {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Razorpay TEST MODE</h1>
-      <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-        <p className="text-sm text-yellow-700">
-          This is an internal test tool for Razorpay Test Mode integration. Do NOT use live credentials.
-        </p>
-        <p className="text-sm text-yellow-700 mt-2">
-          <strong>Webhook Status:</strong> Webhook endpoint configured.
-        </p>
+    <div className="space-y-4 md:space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto">
+      
+      <div className="bg-accent-yellow/10 border border-accent-yellow/30 p-4 md:p-5 rounded-[12px] flex items-start gap-4">
+        <AlertTriangle size={24} className="text-accent-yellow shrink-0 mt-0.5" />
+        <div>
+          <h3 className="text-accent-yellow font-semibold text-[15px] mb-1">Razorpay Test Mode Integration</h3>
+          <p className="text-[13px] text-text-secondary leading-relaxed">
+            This is an internal test tool for Razorpay Test Mode integration. Do NOT use live credentials.
+            Webhook endpoint is configured.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div>
-          <h2 className="text-xl font-semibold mb-4">1. Create Test Order</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle icon={<CreditCard size={16} />}>1. Create Test Order</CardTitle>
+          </CardHeader>
           <form onSubmit={handleCreateOrder} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Amount (Standard Units)</label>
-              <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+              <label className="block text-[12px] text-text-secondary mb-1.5 font-medium">Amount (Standard Units)</label>
+              <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-[rgba(9,24,45,0.8)] border border-[rgba(120,150,210,0.2)] rounded-[8px] px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-brand focus:shadow-[0_0_0_3px_rgba(47,128,237,0.12)]" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Currency</label>
-              <input type="text" value={currency} onChange={e => setCurrency(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+              <label className="block text-[12px] text-text-secondary mb-1.5 font-medium">Currency</label>
+              <input type="text" value={currency} onChange={e => setCurrency(e.target.value)} className="w-full bg-[rgba(9,24,45,0.8)] border border-[rgba(120,150,210,0.2)] rounded-[8px] px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-brand focus:shadow-[0_0_0_3px_rgba(47,128,237,0.12)]" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Customer Email</label>
-              <input type="email" value={customerId} onChange={e => setCustomerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+              <label className="block text-[12px] text-text-secondary mb-1.5 font-medium">Customer Email</label>
+              <input type="email" value={customerId} onChange={e => setCustomerId(e.target.value)} className="w-full bg-[rgba(9,24,45,0.8)] border border-[rgba(120,150,210,0.2)] rounded-[8px] px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-brand focus:shadow-[0_0_0_3px_rgba(47,128,237,0.12)]" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Merchant ID</label>
-              <input type="text" value={merchantId} onChange={e => setMerchantId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+              <label className="block text-[12px] text-text-secondary mb-1.5 font-medium">Merchant ID</label>
+              <input type="text" value={merchantId} onChange={e => setMerchantId(e.target.value)} className="w-full bg-[rgba(9,24,45,0.8)] border border-[rgba(120,150,210,0.2)] rounded-[8px] px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-brand focus:shadow-[0_0_0_3px_rgba(47,128,237,0.12)]" />
             </div>
-            <button type="submit" disabled={loading} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <Button type="submit" disabled={loading} fullWidth icon={<Play size={16} />}>
               Create Order
-            </button>
+            </Button>
           </form>
 
           {order && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-md">
-              <h3 className="text-md font-medium text-green-700">Order Created</h3>
-              <pre className="text-xs mt-2 overflow-x-auto">{JSON.stringify(order, null, 2)}</pre>
-              
-              <div className="mt-4">
-                <button onClick={handlePayment} disabled={loading} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                  Pay with Razorpay
-                </button>
+            <div className="mt-6 p-4 md:p-5 bg-brand/5 border border-brand/20 rounded-[10px]">
+              <div className="flex items-center gap-2 text-brand-bright mb-3">
+                <CheckCircle size={18} />
+                <h3 className="text-[14px] font-semibold">Order Created</h3>
               </div>
+              <pre className="text-[11px] text-text-secondary overflow-x-auto bg-[#050C17] p-3 rounded-[6px] border border-border-subtle mb-4 custom-scrollbar">
+                {JSON.stringify(order, null, 2)}
+              </pre>
+              
+              <Button onClick={handlePayment} disabled={loading} variant="secondary" fullWidth className="bg-brand/20 border-brand/50 text-white hover:bg-brand/30 hover:border-brand">
+                Pay with Razorpay
+              </Button>
             </div>
           )}
-        </div>
+        </Card>
 
-        <div>
-          <h2 className="text-xl font-semibold mb-4">2. Assess Test Payment Manually (Optional)</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle icon={<SearchCheck size={16} />}>2. Assess Test Payment Manually (Optional)</CardTitle>
+          </CardHeader>
           <form onSubmit={handleAssessPayment} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Razorpay Payment ID (pay_...)</label>
-              <input type="text" value={paymentId} onChange={e => setPaymentId(e.target.value)} placeholder="pay_XXX" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+              <label className="block text-[12px] text-text-secondary mb-1.5 font-medium">Razorpay Payment ID (pay_...)</label>
+              <input type="text" value={paymentId} onChange={e => setPaymentId(e.target.value)} placeholder="pay_XXX" className="w-full bg-[rgba(9,24,45,0.8)] border border-[rgba(120,150,210,0.2)] rounded-[8px] px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-brand focus:shadow-[0_0_0_3px_rgba(47,128,237,0.12)]" />
             </div>
-            <button type="submit" disabled={loading} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <Button type="submit" disabled={loading} variant="secondary" fullWidth>
               Assess Transaction
-            </button>
+            </Button>
           </form>
-        </div>
+        </Card>
       </div>
       
       {error && (
-        <div className="mt-6 p-4 bg-red-50 border-l-4 border-red-400">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="p-4 bg-accent-red/10 border border-accent-red/30 rounded-[10px] flex items-center gap-3 text-accent-red">
+          <ShieldAlert size={20} />
+          <p className="text-[13px] font-medium">{error}</p>
         </div>
       )}
 
       {assessment && (
-        <div className="mt-8 p-6 bg-white border border-gray-200 shadow rounded-md">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">RazorBrain AI Assessment</h2>
-          <div className="grid grid-cols-2 gap-4">
+        <Card className="border-brand/40 shadow-[0_0_20px_rgba(47,128,237,0.1)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-brand/10 rounded-full blur-[50px] -mr-10 -mt-10 pointer-events-none"></div>
+          
+          <CardHeader>
+            <CardTitle icon={<CheckCircle size={18} className="text-accent-green" />}>RazorBrain AI Assessment</CardTitle>
+          </CardHeader>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-6">
             <div>
-              <p className="text-sm text-gray-500">Decision</p>
-              <p className={`text-lg font-bold ${assessment.decision === 'BLOCK' ? 'text-red-600' : assessment.decision === 'ALLOW' ? 'text-green-600' : 'text-yellow-600'}`}>
+              <p className="text-[11px] text-text-muted uppercase tracking-widest font-semibold mb-1.5">Decision</p>
+              <Badge variant={assessment.decision === 'BLOCK' ? 'danger' : assessment.decision === 'ALLOW' ? 'success' : 'warning'} className="text-[14px] px-3 py-1">
                 {assessment.decision}
-              </p>
+              </Badge>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Fraud Probability</p>
-              <p className="text-lg font-bold">
+              <p className="text-[11px] text-text-muted uppercase tracking-widest font-semibold mb-1.5">Fraud Probability</p>
+              <p className={`text-[20px] font-bold ${assessment.risk > 0.7 ? 'text-accent-red' : assessment.risk > 0.3 ? 'text-accent-yellow' : 'text-accent-green'}`}>
                 {assessment.risk !== undefined && assessment.risk !== null 
                   ? (assessment.risk * 100).toFixed(2) + '%' 
                   : 'Unavailable'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Model Track</p>
-              <p className="text-md">{assessment.model_track}</p>
+              <p className="text-[11px] text-text-muted uppercase tracking-widest font-semibold mb-1.5">Model Track</p>
+              <p className="text-[14px] text-text-primary font-medium">{assessment.model_track}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Assessment Type</p>
-              <p className="text-md">{assessment.assessment_type}</p>
+              <p className="text-[11px] text-text-muted uppercase tracking-widest font-semibold mb-1.5">Assessment Type</p>
+              <p className="text-[14px] text-text-primary font-medium">{assessment.assessment_type}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Assessment ID</p>
-              <p className="text-sm font-mono">{assessment.assessment_id}</p>
+              <p className="text-[11px] text-text-muted uppercase tracking-widest font-semibold mb-1.5">Assessment ID</p>
+              <p className="text-[12px] font-mono text-text-secondary bg-bg-card-secondary px-2 py-1 rounded inline-block">{assessment.assessment_id}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Razorpay Identifiers</p>
-              <p className="text-sm font-mono">Pay: {assessment.transaction_id}</p>
-              <p className="text-sm font-mono">Order: {order?.id || 'Unknown'}</p>
+              <p className="text-[11px] text-text-muted uppercase tracking-widest font-semibold mb-1.5">Razorpay Identifiers</p>
+              <div className="space-y-1">
+                <p className="text-[11px] font-mono text-text-secondary"><span className="text-text-muted">Pay:</span> {assessment.transaction_id}</p>
+                <p className="text-[11px] font-mono text-text-secondary"><span className="text-text-muted">Order:</span> {order?.id || 'Unknown'}</p>
+              </div>
             </div>
           </div>
           
-          <div className="mt-6 flex gap-4">
-            <a href={`/transactions/${assessment.assessment_id}`} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+          <div className="pt-4 border-t border-border-subtle">
+            <Button onClick={() => window.location.href = `/transactions/${assessment.assessment_id}`}>
               Investigate Assessment Details
-            </a>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

@@ -99,6 +99,56 @@ The investigation dashboard provides a true SHAP (`shap.TreeExplainer`) breakdow
 
 ---
 
+## Automated ML Performance & Evaluation Report
+
+An automated, reproducible reporting pipeline is available via [`scripts/generate_report.py`](file:///Users/sudarshankumar/RazorBrain/scripts/generate_report.py). It evaluates the authoritative frozen model artifact ([`data/razorpay_serving_model_calibrated.joblib`](file:///Users/sudarshankumar/RazorBrain/data/razorpay_serving_model_calibrated.joblib)) against the full validation partition ([`data/razorpay_serving_dataset/validation.csv`](file:///Users/sudarshankumar/RazorBrain/data/razorpay_serving_dataset/validation.csv)) without synthetic approximations or retrained weights.
+
+To regenerate all reports, curves, and machine-readable data:
+```bash
+python scripts/generate_report.py
+```
+
+All outputs are saved to the `outputs/` directory:
+- **Metrics & Data**: [`outputs/metrics.json`](file:///Users/sudarshankumar/RazorBrain/outputs/metrics.json), [`outputs/metrics.csv`](file:///Users/sudarshankumar/RazorBrain/outputs/metrics.csv), [`outputs/model_parameters.csv`](file:///Users/sudarshankumar/RazorBrain/outputs/model_parameters.csv), [`outputs/shap_importance.csv`](file:///Users/sudarshankumar/RazorBrain/outputs/shap_importance.csv)
+- **Visualizations**: `eda.png`, `class_balance.png`, `transaction_distribution.png`, `missing_values.png`, `shap_importance.png`, `roc_curve.png`, `precision_recall_curve.png`, `score_distribution.png`
+
+### Operating Modes & Threshold Evaluation
+
+| Operating Mode | Threshold (\(\tau\)) | Selection Logic | AUC-ROC | PR-AUC | Precision | Recall | F1 Score | FPR | Specificity | TP | FP | FN | TN |
+| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **`HIGH_PRECISION`** | **0.2322** | Maximizes \(F_{0.5}\) on validation set (weights precision 2x over recall) to minimize false positives | 0.7647 | 0.1725 | **32.08%** | 17.42% | 0.2258 | **1.31%** | 98.69% | 530 | 1,122 | 2,512 | 84,417 |
+| **`BALANCED`** | **0.1275** | Maximizes \(F_1\) on validation set to balance precision & recall | 0.7647 | 0.1725 | 21.61% | **31.13%** | **0.2551** | 4.02% | 95.98% | 947 | 3,436 | 2,095 | 82,103 |
+| **`POLICY_REVIEW`** | **0.1213** | Validation policy threshold for manual review routing | 0.7647 | 0.1725 | 18.71% | 36.69% | 0.2478 | 5.67% | 94.33% | 1,116 | 4,849 | 1,926 | 80,690 |
+| **`POLICY_BLOCK`** | **0.2053** | Validation policy threshold for automated blocking | 0.7647 | 0.1725 | 30.19% | 19.46% | 0.2367 | 1.60% | 98.40% | 592 | 1,369 | 2,450 | 84,170 |
+| **`DEFAULT_0.50`** | **0.5000** | Standard uncalibrated classification threshold | 0.7647 | 0.1725 | 57.02% | 2.27% | 0.0436 | 0.06% | 99.94% | 69 | 52 | 2,973 | 85,487 |
+
+### Visual Performance Artifacts
+
+#### 1. Receiver Operating Characteristic & Precision-Recall Curves
+<p align="center">
+  <img src="outputs/roc_curve.png" width="48%" alt="ROC Curve" />
+  <img src="outputs/precision_recall_curve.png" width="48%" alt="Precision-Recall Curve" />
+</p>
+
+#### 2. Fraud Probability Score Separation & Feature Importance
+<p align="center">
+  <img src="outputs/score_distribution.png" width="48%" alt="Score Distribution" />
+  <img src="outputs/shap_importance.png" width="48%" alt="SHAP Feature Importance" />
+</p>
+
+#### 3. Exploratory Data Analysis & Class Balance
+<p align="center">
+  <img src="outputs/eda.png" width="48%" alt="Exploratory Data Analysis" />
+  <img src="outputs/class_balance.png" width="48%" alt="Class Balance" />
+</p>
+
+#### 4. Transaction Amount Distribution & Feature Missingness
+<p align="center">
+  <img src="outputs/transaction_distribution.png" width="48%" alt="Transaction Amount Distribution" />
+  <img src="outputs/missing_values.png" width="48%" alt="Feature Missingness" />
+</p>
+
+---
 ## Review Queue and Ground Truth
 
 RazorBrain strictly separates model predictions from true fraud ground truth.

@@ -1,6 +1,7 @@
 import uuid
 import logging
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi import APIRouter, Request, HTTPException, status, Depends
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
@@ -83,7 +84,7 @@ async def assess(txn_request: TransactionRequest, request: Request, api_key: str
                 request_id=req_id
             )
         )
-        return JSONResponse(status_code=500, content={"error": err.error.model_dump(), "partial_result": e.decision_result})
+        return JSONResponse(status_code=500, content=jsonable_encoder({"error": err.error.model_dump(), "partial_result": e.decision_result}))
     except Exception as e:
         logger.error(f"[{req_id}] Unhandled error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error.")

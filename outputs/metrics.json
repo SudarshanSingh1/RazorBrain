@@ -1,0 +1,272 @@
+{
+  "metadata": {
+    "model_track": "RAZORPAY_SERVING_MODEL",
+    "framework": "XGBoost",
+    "calibrator": "isotonic",
+    "best_iteration": 71,
+    "features_count": 15,
+    "features": [
+      "amount",
+      "log_amount",
+      "hour_of_day",
+      "day_of_week",
+      "email_domain",
+      "email_domain_missing",
+      "card_network",
+      "card_type",
+      "previous_transaction_count",
+      "is_new_customer",
+      "avg_customer_amount",
+      "amount_deviation",
+      "amount_ratio",
+      "txns_last_1h",
+      "txns_last_24h"
+    ]
+  },
+  "dataset_sizes": {
+    "train_rows": 413378,
+    "train_fraud": 14538,
+    "train_fraud_rate": 0.035169,
+    "val_rows": 88581,
+    "val_fraud": 3042,
+    "val_fraud_rate": 0.034341
+  },
+  "overall_evaluation": {
+    "auc_roc": 0.764683,
+    "pr_auc": 0.172498
+  },
+  "operating_modes": [
+    {
+      "mode": "HIGH_PRECISION",
+      "threshold": 0.2322,
+      "threshold_selection_logic": "Maximizes F0.5 score on validation data (weights precision 2x over recall) to minimize false positives",
+      "auc_roc": 0.7647,
+      "pr_auc": 0.1725,
+      "precision": 0.3208,
+      "recall": 0.1742,
+      "f1_score": 0.2258,
+      "false_positive_rate": 0.0131,
+      "specificity": 0.9869,
+      "accuracy": 0.959,
+      "true_positives": 530,
+      "true_negatives": 84417,
+      "false_positives": 1122,
+      "false_negatives": 2512,
+      "total_samples": 88581
+    },
+    {
+      "mode": "BALANCED",
+      "threshold": 0.1275,
+      "threshold_selection_logic": "Maximizes F1 score on validation data to achieve balanced precision-recall tradeoff",
+      "auc_roc": 0.7647,
+      "pr_auc": 0.1725,
+      "precision": 0.2161,
+      "recall": 0.3113,
+      "f1_score": 0.2551,
+      "false_positive_rate": 0.0402,
+      "specificity": 0.9598,
+      "accuracy": 0.9376,
+      "true_positives": 947,
+      "true_negatives": 82103,
+      "false_positives": 3436,
+      "false_negatives": 2095,
+      "total_samples": 88581
+    },
+    {
+      "mode": "DEFAULT_0.50",
+      "threshold": 0.5,
+      "threshold_selection_logic": "Standard default classification threshold",
+      "auc_roc": 0.7647,
+      "pr_auc": 0.1725,
+      "precision": 0.5702,
+      "recall": 0.0227,
+      "f1_score": 0.0436,
+      "false_positive_rate": 0.0006,
+      "specificity": 0.9994,
+      "accuracy": 0.9659,
+      "true_positives": 69,
+      "true_negatives": 85487,
+      "false_positives": 52,
+      "false_negatives": 2973,
+      "total_samples": 88581
+    },
+    {
+      "mode": "POLICY_REVIEW",
+      "threshold": 0.1213,
+      "threshold_selection_logic": "Validation-selected policy threshold for flagging transactions into manual review",
+      "auc_roc": 0.7647,
+      "pr_auc": 0.1725,
+      "precision": 0.1871,
+      "recall": 0.3669,
+      "f1_score": 0.2478,
+      "false_positive_rate": 0.0567,
+      "specificity": 0.9433,
+      "accuracy": 0.9235,
+      "true_positives": 1116,
+      "true_negatives": 80690,
+      "false_positives": 4849,
+      "false_negatives": 1926,
+      "total_samples": 88581
+    },
+    {
+      "mode": "POLICY_BLOCK",
+      "threshold": 0.2053,
+      "threshold_selection_logic": "Validation-selected policy threshold for automated blocking of high-confidence fraud",
+      "auc_roc": 0.7647,
+      "pr_auc": 0.1725,
+      "precision": 0.3019,
+      "recall": 0.1946,
+      "f1_score": 0.2367,
+      "false_positive_rate": 0.016,
+      "specificity": 0.984,
+      "accuracy": 0.9569,
+      "true_positives": 592,
+      "true_negatives": 84170,
+      "false_positives": 1369,
+      "false_negatives": 2450,
+      "total_samples": 88581
+    }
+  ],
+  "score_distribution": {
+    "all": {
+      "p0": 0.0,
+      "p10": 0.007469,
+      "p25": 0.011739,
+      "p50": 0.022407,
+      "p75": 0.038781,
+      "p90": 0.079666,
+      "p95": 0.124563,
+      "p99": 0.232179,
+      "p100": 1.0
+    },
+    "legitimate": {
+      "p0": 0.0,
+      "p10": 0.005274,
+      "p25": 0.011739,
+      "p50": 0.022407,
+      "p75": 0.038781,
+      "p90": 0.077934,
+      "p95": 0.124563,
+      "p99": 0.232179,
+      "p100": 0.818182
+    },
+    "fraud": {
+      "p0": 0.0,
+      "p10": 0.011739,
+      "p25": 0.026511,
+      "p50": 0.0629,
+      "p75": 0.186301,
+      "p90": 0.285714,
+      "p95": 0.351464,
+      "p99": 0.818182,
+      "p100": 1.0
+    }
+  },
+  "shap_importance_summary": [
+    {
+      "rank": 1,
+      "feature": "card_type",
+      "mean_abs_shap": 0.383263,
+      "relative_importance_pct": 22.34,
+      "sample_size": 2000
+    },
+    {
+      "rank": 2,
+      "feature": "avg_customer_amount",
+      "mean_abs_shap": 0.343234,
+      "relative_importance_pct": 20.0,
+      "sample_size": 2000
+    },
+    {
+      "rank": 3,
+      "feature": "email_domain",
+      "mean_abs_shap": 0.243738,
+      "relative_importance_pct": 14.21,
+      "sample_size": 2000
+    },
+    {
+      "rank": 4,
+      "feature": "amount",
+      "mean_abs_shap": 0.232345,
+      "relative_importance_pct": 13.54,
+      "sample_size": 2000
+    },
+    {
+      "rank": 5,
+      "feature": "txns_last_1h",
+      "mean_abs_shap": 0.137024,
+      "relative_importance_pct": 7.99,
+      "sample_size": 2000
+    },
+    {
+      "rank": 6,
+      "feature": "previous_transaction_count",
+      "mean_abs_shap": 0.101255,
+      "relative_importance_pct": 5.9,
+      "sample_size": 2000
+    },
+    {
+      "rank": 7,
+      "feature": "txns_last_24h",
+      "mean_abs_shap": 0.091988,
+      "relative_importance_pct": 5.36,
+      "sample_size": 2000
+    },
+    {
+      "rank": 8,
+      "feature": "hour_of_day",
+      "mean_abs_shap": 0.066642,
+      "relative_importance_pct": 3.88,
+      "sample_size": 2000
+    },
+    {
+      "rank": 9,
+      "feature": "email_domain_missing",
+      "mean_abs_shap": 0.035524,
+      "relative_importance_pct": 2.07,
+      "sample_size": 2000
+    },
+    {
+      "rank": 10,
+      "feature": "card_network",
+      "mean_abs_shap": 0.029985,
+      "relative_importance_pct": 1.75,
+      "sample_size": 2000
+    },
+    {
+      "rank": 11,
+      "feature": "amount_ratio",
+      "mean_abs_shap": 0.021443,
+      "relative_importance_pct": 1.25,
+      "sample_size": 2000
+    },
+    {
+      "rank": 12,
+      "feature": "amount_deviation",
+      "mean_abs_shap": 0.015472,
+      "relative_importance_pct": 0.9,
+      "sample_size": 2000
+    },
+    {
+      "rank": 13,
+      "feature": "day_of_week",
+      "mean_abs_shap": 0.013854,
+      "relative_importance_pct": 0.81,
+      "sample_size": 2000
+    },
+    {
+      "rank": 14,
+      "feature": "log_amount",
+      "mean_abs_shap": 0.0,
+      "relative_importance_pct": 0.0,
+      "sample_size": 2000
+    },
+    {
+      "rank": 15,
+      "feature": "is_new_customer",
+      "mean_abs_shap": 0.0,
+      "relative_importance_pct": 0.0,
+      "sample_size": 2000
+    }
+  ]
+}

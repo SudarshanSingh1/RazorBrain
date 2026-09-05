@@ -50,3 +50,10 @@ data/raw/*.csv
 data/raw/*.zip
 *.db
 rzp-test-key.csv
+
+# Temporary & Scratch Files
+fix_*.js
+*.patch
+*.tmp
+
+

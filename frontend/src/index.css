@@ -1,1 +1,73 @@
 @import "tailwindcss";
+
+@theme {
+  --color-bg-main: #071426;
+  --color-bg-sidebar: #09182d;
+  --color-bg-card: #0d1d33;
+  --color-bg-card-secondary: #10233d;
+
+  --color-brand: #2f80ed;
+  --color-brand-bright: #3b9cff;
+  --color-brand-dark: #1769d1;
+
+  --color-accent-cyan: #37d5ff;
+  --color-accent-green: #35d39e;
+  --color-accent-yellow: #ffb52e;
+  --color-accent-red: #ff5c70;
+
+  --color-text-primary: #f5f8ff;
+  --color-text-secondary: #9eacc4;
+  --color-text-muted: #667892;
+
+  --color-border-subtle: rgba(110, 150, 210, 0.16);
+  --color-border-active: rgba(47, 128, 237, 0.6);
+}
+
+:root {
+  --bg-main: #071426;
+  --bg-sidebar: #09182d;
+  --bg-card: #0d1d33;
+  --bg-card-secondary: #10233d;
+
+  --primary-blue: #2f80ed;
+  --primary-blue-bright: #3b9cff;
+  --primary-blue-dark: #1769d1;
+
+  --cyan: #37d5ff;
+  --green: #35d39e;
+  --yellow: #ffb52e;
+  --red: #ff5c70;
+
+  --text-primary: #f5f8ff;
+  --text-secondary: #9eacc4;
+  --text-muted: #667892;
+
+  --border-subtle: rgba(110, 150, 210, 0.16);
+  --border-active: rgba(47, 128, 237, 0.6);
+}
+
+@layer base {
+  body {
+    @apply bg-bg-main text-text-primary font-sans antialiased;
+  }
+}
+
+/* Scrollbar styles for the app */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-card-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-active);
+}
+

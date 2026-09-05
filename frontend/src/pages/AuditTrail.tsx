@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getTransactions } from '../api';
-import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight,  } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, ShieldCheck, Ban, AlertTriangle } from 'lucide-react';
+import { Card, DataTable, Badge, Button, LinkText } from '../components/ui';
+import type { Column } from '../components/ui';
 
 export default function AuditTrail() {
   const [data, setData] = useState<any[]>([]);
@@ -9,105 +11,138 @@ export default function AuditTrail() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const limit = 20;
+  const navigate = useNavigate();
 
   useEffect(() => {
-    setLoading(true);
+    let active = true;
     getTransactions({ limit, offset: page * limit })
       .then(res => {
+        if (!active) return;
         setData(res.data.data);
         setTotal(res.data.total);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+    return () => { active = false; };
   }, [page]);
 
-  const getDecisionText = (decision: string) => {
-    switch(decision) {
-      case 'ALLOW': return <span className="text-emerald-500 font-medium">ALLOW</span>;
-      case 'REVIEW': return <span className="text-amber-500 font-medium">REVIEW</span>;
-      case 'BLOCK': return <span className="text-rose-500 font-medium">BLOCK</span>;
-      default: return null;
+  const columns: Column<any>[] = [
+    {
+      header: 'Timestamp (UTC)',
+      cell: (row) => (
+        <span className="font-mono text-text-secondary">
+          {new Date(row.timestamp).toISOString()}
+        </span>
+      )
+    },
+    {
+      header: 'Assessment ID',
+      cell: (row) => (
+        <span className="font-mono text-[11px] text-text-muted">
+          {row.assessment_id}
+        </span>
+      )
+    },
+    {
+      header: 'Transaction ID',
+      cell: (row) => (
+        <span className="font-mono text-[11px] text-text-secondary">
+          {row.transaction_id}
+        </span>
+      )
+    },
+    {
+      header: 'Decision',
+      cell: (row) => {
+        switch(row.decision) {
+          case 'ALLOW': return <span className="text-accent-green font-medium flex items-center gap-1.5"><ShieldCheck size={14}/> ALLOW</span>;
+          case 'REVIEW': return <span className="text-accent-yellow font-medium flex items-center gap-1.5"><AlertTriangle size={14}/> REVIEW</span>;
+          case 'BLOCK': return <span className="text-accent-red font-medium flex items-center gap-1.5"><Ban size={14}/> BLOCK</span>;
+          default: return null;
+        }
+      }
+    },
+    {
+      header: 'Provider',
+      cell: (row) => {
+        if (row.provider) {
+          return (
+            <Badge variant={row.grounded ? 'default' : 'secondary'} className={row.grounded ? 'bg-brand/15 text-brand-bright border-brand/30' : ''}>
+              {row.provider} {row.grounded && '(Grounded)'}
+            </Badge>
+          );
+        }
+        return <span className="text-text-muted text-[11px] italic">Unavailable</span>;
+      }
+    },
+    {
+      header: 'Action',
+      className: 'text-right',
+      cell: (row) => (
+        <LinkText onClick={(e: any) => { e.stopPropagation(); navigate(`/transactions/${row.assessment_id}`); }} className="ml-auto">
+          Verify Record
+        </LinkText>
+      )
     }
-  };
+  ];
 
   return (
-    <div className="space-y-6">
-      
-      <div className="bg-[#0f172a] border border-slate-800/60 rounded-xl overflow-hidden shadow-sm flex flex-col h-[calc(100vh-12rem)]">
+    <div className="space-y-4 md:space-y-6 animate-in fade-in duration-500 h-[calc(100vh-10rem)] md:h-[calc(100vh-12rem)] flex flex-col">
+      <Card noPadding className="flex flex-col flex-1 overflow-hidden">
         
-        <div className="p-3 border-b border-slate-800/60 flex items-center justify-between bg-[#0B1120]">
-          <div className="text-xs text-slate-500 px-2 uppercase tracking-widest font-semibold">
+        <div className="p-3 md:p-4 border-b border-border-subtle flex items-center justify-between bg-bg-card">
+          <div className="text-[11px] text-text-muted uppercase tracking-widest font-semibold">
             Immutable Audit Logs
           </div>
-          <div className="text-[10px] text-slate-500 bg-slate-900 border border-slate-800 px-2 py-1 rounded">
+          <div className="text-[10px] text-text-secondary bg-bg-card-secondary border border-border-subtle px-2 py-1 rounded-[6px]">
             Source: SQLite audit records
           </div>
         </div>
 
-        <div className="overflow-x-auto flex-1 custom-scrollbar relative">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0B1120] text-slate-400 uppercase tracking-widest text-[10px] sticky top-0 z-10 shadow-sm border-b border-slate-800/60">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Timestamp</th>
-                <th className="px-4 py-3 font-semibold">Assessment ID</th>
-                <th className="px-4 py-3 font-semibold">Txn ID</th>
-                <th className="px-4 py-3 font-semibold">Decision</th>
-                <th className="px-4 py-3 font-semibold">Provider</th>
-                <th className="px-4 py-3 font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/40">
-              {loading ? (
-                <tr><td colSpan={6} className="p-12 text-center text-slate-500 animate-pulse">Loading audit logs...</td></tr>
-              ) : data.length === 0 ? (
-                <tr><td colSpan={6} className="p-12 text-center text-slate-500">No audit records found.</td></tr>
-              ) : (
-                data.map((row) => (
-                  <tr key={row.assessment_id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{new Date(row.timestamp).toISOString()}</td>
-                    <td className="px-4 py-2.5 font-mono text-[10px] text-slate-500">{row.assessment_id}</td>
-                    <td className="px-4 py-2.5 font-mono text-[10px] text-slate-400">{row.transaction_id}</td>
-                    <td className="px-4 py-2.5 text-xs">{getDecisionText(row.decision)}</td>
-                    <td className="px-4 py-2.5">
-                      {row.provider ? (
-                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider ${row.grounded ? 'bg-indigo-900/40 text-indigo-400 border border-indigo-800/50' : 'bg-slate-800 text-slate-400'}`}>
-                          {row.provider} {row.grounded && '(Grounded)'}
-                        </span>
-                      ) : <span className="text-slate-600 text-[10px] italic">Unavailable</span>}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <Link to={`/transactions/${row.assessment_id}`} className="text-blue-500 hover:text-blue-400 font-medium text-xs">Verify</Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="flex-1 overflow-hidden relative">
+          <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
+            {loading ? (
+              <div className="p-12 text-center text-text-muted animate-pulse">Loading audit logs...</div>
+            ) : (
+              <DataTable
+                data={data}
+                columns={columns}
+                keyExtractor={(item) => item.assessment_id}
+                onRowClick={(item) => navigate(`/transactions/${item.assessment_id}`)}
+                emptyMessage="No audit records found."
+              />
+            )}
+          </div>
         </div>
         
         {/* Pagination */}
-        <div className="p-3 border-t border-slate-800/60 bg-[#0B1120] flex items-center justify-between text-xs">
-          <div className="text-slate-400">
-            Showing <span className="font-medium text-slate-200">{data.length > 0 ? page * limit + 1 : 0}</span> to <span className="font-medium text-slate-200">{Math.min((page + 1) * limit, total)}</span> of <span className="font-medium text-slate-200">{total.toLocaleString()}</span> records
+        <div className="p-3 md:p-4 border-t border-border-subtle bg-bg-card-secondary flex items-center justify-between text-[13px]">
+          <div className="text-text-muted">
+            Showing <span className="font-medium text-text-primary">{data.length > 0 ? page * limit + 1 : 0}</span> to <span className="font-medium text-text-primary">{Math.min((page + 1) * limit, total)}</span> of <span className="font-medium text-text-primary">{total.toLocaleString()}</span> records
           </div>
-          <div className="flex gap-1.5">
-            <button 
-              onClick={() => setPage(p => Math.max(0, p - 1))}
+          <div className="flex gap-2">
+            <Button 
+              variant="secondary"
+              size="sm"
+              onClick={() => { setLoading(true); setPage(p => Math.max(0, p - 1)); }}
               disabled={page === 0}
-              className="p-1.5 border border-slate-700/60 rounded hover:bg-slate-800 disabled:opacity-40 text-slate-300 transition-colors"
             >
-              <ChevronLeft size={14}/>
-            </button>
-            <button 
-              onClick={() => setPage(p => p + 1)}
+              <ChevronLeft size={16}/>
+            </Button>
+            <Button 
+              variant="secondary"
+              size="sm"
+              onClick={() => { setLoading(true); setPage(p => p + 1); }}
               disabled={(page + 1) * limit >= total}
-              className="p-1.5 border border-slate-700/60 rounded hover:bg-slate-800 disabled:opacity-40 text-slate-300 transition-colors"
             >
-              <ChevronRight size={14}/>
-            </button>
+              <ChevronRight size={16}/>
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

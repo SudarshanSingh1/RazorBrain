@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { getRiskDistribution, getRuleIntelligence, getProbabilityAmount, getShapIntelligence } from '../api';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ScatterChart, Scatter, ZAxis } from 'recharts';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Target, ShieldAlert, BarChart2, Activity } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  ScatterChart, Scatter, ZAxis
+} from 'recharts';
+import { Card, CardHeader, CardTitle, Badge } from '../components/ui';
 
 export default function RiskAnalytics() {
   const [distData, setDistData] = useState<any[]>([]);
@@ -13,8 +17,8 @@ export default function RiskAnalytics() {
 
   useEffect(() => {
     Promise.all([
-      getRiskDistribution(), 
-      getRuleIntelligence(), 
+      getRiskDistribution(),
+      getRuleIntelligence(),
       getProbabilityAmount(),
       getShapIntelligence()
     ])
@@ -35,124 +39,157 @@ export default function RiskAnalytics() {
       });
   }, []);
 
-  if (loading) return <div className="text-slate-400 animate-pulse">Loading analytics...</div>;
-  if (error) return <div className="text-red-400 border border-red-900 bg-red-950/20 p-4 rounded-md">Unable to load risk analytics.</div>;
+  if (loading) return (
+    <div className="flex h-64 items-center justify-center space-x-2">
+      <div className="w-4 h-4 bg-brand rounded-full animate-bounce"></div>
+      <div className="w-4 h-4 bg-brand rounded-full animate-bounce delay-75"></div>
+      <div className="w-4 h-4 bg-brand rounded-full animate-bounce delay-150"></div>
+    </div>
+  );
+  
+  if (error) return (
+    <Card className="text-accent-red border-accent-red/30 bg-accent-red/5 flex items-center gap-3">
+      <AlertCircle size={20} />
+      Unable to load risk analytics.
+    </Card>
+  );
 
   const totalRules = ruleData.reduce((acc, r) => acc + r.count, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 animate-in fade-in duration-500">
       
       {/* Top row: Prob Dist and SHAP */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#0f172a] border border-slate-800/60 p-6 rounded-xl shadow-sm">
-          <h2 className="text-base font-semibold text-slate-200">Calibrated Risk Probability</h2>
-          <p className="text-xs text-slate-400 mt-1 mb-6">Distribution of stored calibrated model probabilities.</p>
-          <div className="h-64 w-full">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle icon={<BarChart2 size={16} />}>Calibrated Risk Probability</CardTitle>
+          </CardHeader>
+          <p className="text-[12px] text-text-secondary mt-1 mb-6">Distribution of stored calibrated model probabilities.</p>
+          <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={distData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                <XAxis dataKey="name" stroke="#9eacc4" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#9eacc4" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip 
-                  cursor={{ fill: '#1e293b' }}
-                  contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', color: '#e2e8f0', borderRadius: '8px' }}
+                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                  contentStyle={{ backgroundColor: '#0d1d33', borderColor: 'rgba(110,150,210,0.16)', color: '#f5f8ff', borderRadius: '8px' }}
                 />
-                <Bar dataKey="count" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="count" fill="url(#blueGradient)" radius={[4, 4, 0, 0]} />
+                <defs>
+                  <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b9cff" />
+                    <stop offset="100%" stopColor="#2f80ed" />
+                  </linearGradient>
+                </defs>
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-[10px] text-slate-500 mt-4 italic">Based on stored calibrated probabilities with non-null values.</p>
-        </div>
+          <p className="text-[11px] text-text-muted mt-4 italic">Based on stored calibrated probabilities with non-null values.</p>
+        </Card>
 
-        <div className="bg-[#0f172a] border border-slate-800/60 p-6 rounded-xl shadow-sm">
-          <h2 className="text-base font-semibold text-slate-200">Model Evidence — Top Contributors</h2>
-          <p className="text-xs text-slate-400 mt-1 mb-6">Global mean absolute SHAP magnitude per feature.</p>
-          <div className="h-64 w-full">
+        <Card>
+          <CardHeader>
+            <CardTitle icon={<Target size={16} />}>Model Evidence — Top Contributors</CardTitle>
+          </CardHeader>
+          <p className="text-[12px] text-text-secondary mt-1 mb-6">Global mean absolute SHAP magnitude per feature.</p>
+          <div className="h-[260px] w-full">
             {shapData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={shapData} layout="vertical" margin={{ top: 5, right: 10, left: 100, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                  <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis dataKey="feature_name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                  <XAxis type="number" stroke="#9eacc4" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis dataKey="feature_name" type="category" stroke="#9eacc4" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip 
-                    cursor={{ fill: '#1e293b' }}
-                    contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', color: '#e2e8f0', borderRadius: '8px' }}
+                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                    contentStyle={{ backgroundColor: '#0d1d33', borderColor: 'rgba(110,150,210,0.16)', color: '#f5f8ff', borderRadius: '8px' }}
                     formatter={(val: any) => val.toFixed(4)}
                   />
-                  <Bar dataKey="mean_abs_shap" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={12} />
+                  <Bar dataKey="mean_abs_shap" fill="#1769d1" radius={[0, 4, 4, 0]} barSize={14} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-500 text-sm">No stored SHAP evidence is available.</div>
+              <div className="h-full flex items-center justify-center text-text-muted text-[13px]">No stored SHAP evidence is available.</div>
             )}
           </div>
-          <p className="text-[10px] text-slate-500 mt-4 italic">SHAP values describe model contribution and are not independent risk points.</p>
-        </div>
+          <p className="text-[11px] text-text-muted mt-4 italic">SHAP values describe model contribution and are not independent risk points.</p>
+        </Card>
       </div>
 
       {/* Bottom row: Rule Intel and Scatter */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#0f172a] border border-slate-800/60 p-6 rounded-xl shadow-sm">
-          <h2 className="text-base font-semibold text-slate-200">Rule Intelligence</h2>
-          <p className="text-xs text-slate-400 mt-1 mb-6">Triggered deterministic evidence counts.</p>
-          <div className="space-y-3 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle icon={<ShieldAlert size={16} />}>Rule Intelligence</CardTitle>
+          </CardHeader>
+          <p className="text-[12px] text-text-secondary mt-1 mb-6">Triggered deterministic evidence counts.</p>
+          <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
             {ruleData.length === 0 ? (
-              <p className="text-slate-500 text-sm py-10 text-center">No rules have triggered.</p>
+              <p className="text-text-muted text-[13px] py-10 text-center">No rules have triggered.</p>
             ) : (
               ruleData.map((rule, idx) => {
                 const pct = totalRules > 0 ? ((rule.count / totalRules) * 100).toFixed(1) : 0;
+                
+                let variant: 'danger' | 'warning' | 'default' = 'default';
+                let iconColor = 'text-brand';
+                if (rule.severity === 'HIGH') {
+                  variant = 'danger';
+                  iconColor = 'text-accent-red';
+                } else if (rule.severity === 'MEDIUM') {
+                  variant = 'warning';
+                  iconColor = 'text-accent-yellow';
+                }
+
                 return (
-                <div key={`${rule.rule_id}-${idx}`} className="flex items-center justify-between p-3 border border-slate-800/60 bg-[#0B1120] rounded-lg group hover:border-slate-600 transition-colors">
+                <div key={`${rule.rule_id}-${idx}`} className="flex items-center justify-between p-3.5 border border-border-subtle bg-bg-card-secondary rounded-[10px] group hover:border-brand/40 transition-colors">
                   <div className="flex items-center gap-3">
-                    <AlertCircle size={16} className={
-                      rule.severity === 'HIGH' ? 'text-rose-500' :
-                      rule.severity === 'MEDIUM' ? 'text-amber-500' : 'text-blue-500'
-                    } />
+                    <AlertCircle size={16} className={iconColor} />
                     <div>
-                      <p className="text-sm font-medium text-slate-300">{rule.rule_id}</p>
-                      <p className="text-[10px] text-slate-500">{pct}% of total triggers</p>
+                      <p className="text-[13px] font-medium text-text-primary">{rule.rule_id}</p>
+                      <p className="text-[11px] text-text-muted mt-0.5">{pct}% of total triggers</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-slate-200">{rule.count.toLocaleString()}</p>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider ${
-                      rule.severity === 'HIGH' ? 'bg-rose-900/40 text-rose-400' :
-                      rule.severity === 'MEDIUM' ? 'bg-amber-900/40 text-amber-400' : 'bg-blue-900/40 text-blue-400'
-                    }`}>{rule.severity}</span>
+                  <div className="text-right flex flex-col items-end gap-1.5">
+                    <p className="text-[14px] font-bold text-text-primary">{rule.count.toLocaleString()}</p>
+                    <Badge variant={variant}>{rule.severity}</Badge>
                   </div>
                 </div>
               )})
             )}
           </div>
-          <p className="text-[10px] text-slate-500 mt-4 italic">Rule counts represent stored triggered rule evidence.</p>
-        </div>
+          <p className="text-[11px] text-text-muted mt-5 italic">Rule counts represent stored triggered rule evidence.</p>
+        </Card>
 
-        <div className="bg-[#0f172a] border border-slate-800/60 p-6 rounded-xl shadow-sm">
-          <h2 className="text-base font-semibold text-slate-200">Observed amount vs calibrated probability</h2>
-          <p className="text-xs text-slate-400 mt-1 mb-6">Observed relationship between transaction amount and model probability.</p>
-          <p className="text-[10px] text-slate-500 mb-6 italic border border-slate-800/60 p-2 rounded bg-slate-900/50">Bounded analytical sample (max 1000 latest observations).</p>
-          <div className="h-72 w-full">
+        <Card>
+          <CardHeader>
+            <CardTitle icon={<Activity size={16} />}>Observed amount vs calibrated probability</CardTitle>
+          </CardHeader>
+          <p className="text-[12px] text-text-secondary mt-1 mb-4">Observed relationship between transaction amount and model probability.</p>
+          <div className="text-[11px] text-text-muted mb-6 italic border border-border-subtle p-2.5 rounded-[8px] bg-bg-card-secondary/50 inline-block">
+            Bounded analytical sample (max 1000 latest observations).
+          </div>
+          <div className="h-[240px] w-full">
             {scatterData.length > 5 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis type="number" dataKey="x" name="Amount" unit="$" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis type="number" dataKey="y" name="Probability" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis type="number" dataKey="x" name="Amount" unit="$" stroke="#9eacc4" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis type="number" dataKey="y" name="Probability" stroke="#9eacc4" fontSize={11} tickLine={false} axisLine={false} />
                   <ZAxis type="number" range={[15, 15]} />
                   <Tooltip 
                     cursor={{ strokeDasharray: '3 3' }}
-                    contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', color: '#e2e8f0', borderRadius: '8px' }}
+                    contentStyle={{ backgroundColor: '#0d1d33', borderColor: 'rgba(110,150,210,0.16)', color: '#f5f8ff', borderRadius: '8px' }}
                     formatter={(value: any, name: any) => name === 'Amount' ? `$${value.toFixed(2)}` : value.toFixed(4)}
                   />
-                  <Scatter name="Transactions" data={scatterData} fill="#3b82f6" fillOpacity={0.5} />
+                  <Scatter name="Transactions" data={scatterData} fill="#3b9cff" fillOpacity={0.6} />
                 </ScatterChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-500 text-sm">Insufficient paired observations.</div>
+              <div className="h-full flex items-center justify-center text-text-muted text-[13px]">Insufficient paired observations.</div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

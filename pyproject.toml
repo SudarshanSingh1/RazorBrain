@@ -19,6 +19,7 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
     "httpx>=0.25.0",
+    "matplotlib>=3.8.0",
 ]
 
 [project.optional-dependencies]
@@ -34,4 +35,4 @@ python_functions = ["test_*"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["data*", "model*", "evaluation*", "backend*"]
+include = ["data*", "model*", "api*", "database*"]
