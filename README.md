@@ -666,8 +666,6 @@ cp .env.example .env
 | `RAZORPAY_MODE` | No | `test` | Gateway operating mode (`test` or `live`) |
 | `RAZORPAY_WEBHOOK_SECRET` | **Yes** | `...` | Webhook secret for HMAC-SHA256 signature verification |
 
-> **Security Note:** Never commit your `.env` file or API secrets to version control. The `.gitignore` file is preconfigured to prevent secret commits.
-
 ---
 
 ## Implementation Status
