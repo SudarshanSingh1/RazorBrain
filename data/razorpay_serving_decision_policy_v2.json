@@ -1,0 +1,28 @@
+{
+    "policy_version": "2.0",
+    "policy_status": "PRODUCTION",
+    "description": "4-tier Decision Engine mapping calibrated fraud probability to APPROVE, REVIEW, STEP_UP, and DECLINE.",
+    "thresholds": {
+        "approve_max": 0.1213,
+        "review_max": 0.1600,
+        "step_up_max": 0.2053
+    },
+    "hard_overrides": [
+        {
+            "condition": "amount > 500000",
+            "force_decision": "REVIEW",
+            "reason_code": "HIGH_VALUE_TRANSACTION"
+        },
+        {
+            "condition": "str(card_network).lower() == 'test'",
+            "force_decision": "DECLINE",
+            "reason_code": "TEST_CARD_NOT_ALLOWED"
+        },
+        {
+            "condition": "is_new_customer == 1 and txns_last_1h > 5",
+            "force_decision": "STEP_UP",
+            "reason_code": "HIGH_VELOCITY_NEW_CUSTOMER"
+        }
+    ],
+    "created_at": "2026-09-05T00:00:00Z"
+}

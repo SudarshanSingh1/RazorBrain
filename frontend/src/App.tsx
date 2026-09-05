@@ -7,6 +7,9 @@ import Transactions from './pages/Transactions';
 import ReviewQueue from './pages/ReviewQueue';
 import AuditTrail from './pages/AuditTrail';
 import TransactionDetail from './pages/TransactionDetail';
+import ScoreTransaction from './pages/ScoreTransaction';
+import Cases from './pages/Cases';
+import CaseDetail from './pages/CaseDetail';
 import { RazorpayTest } from './pages/RazorpayTest';
 import { AppLayout } from './components/layout';
 
@@ -16,6 +19,9 @@ export default function App() {
       <AppLayout>
         <Routes>
           <Route path="/" element={<Overview />} />
+          <Route path="/score-transaction" element={<ScoreTransaction />} />
+          <Route path="/cases" element={<Cases />} />
+          <Route path="/cases/:caseId" element={<CaseDetail />} />
           <Route path="/risk-analytics" element={<RiskAnalytics />} />
           <Route path="/drift-monitoring" element={<DriftMonitoring />} />
           <Route path="/evaluation" element={<Evaluation />} />

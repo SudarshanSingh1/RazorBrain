@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, Activity, List, ClipboardCheck, History, BarChart2, TrendingUp, CreditCard } from 'lucide-react';
+import { Shield, Activity, List, ClipboardCheck, History, BarChart2, TrendingUp, CreditCard, Zap, Briefcase } from 'lucide-react';
 
 interface SidebarProps {
   apiStatus: string;
@@ -11,6 +11,8 @@ interface SidebarProps {
 
 const navItems = [
   { name: 'Overview', path: '/', icon: Shield },
+  { name: 'Score Transaction', path: '/score-transaction', icon: Zap },
+  { name: 'Investigations', path: '/cases', icon: Briefcase },
   { name: 'Transactions', path: '/transactions', icon: List },
   { name: 'Review Queue', path: '/review-queue', icon: ClipboardCheck },
   { name: 'Risk Analytics', path: '/risk-analytics', icon: Activity },

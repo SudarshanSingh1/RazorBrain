@@ -115,6 +115,9 @@ async def lifespan(app: FastAPI):
         from model.serving_model_loader import ServingModelLoader
         from model.serving_policy_loader import ServingPolicyLoader
         from model.serving_shap_explainer import ServingSHAPExplainer
+        from model.serving_rule_engine import ServingRuleEngine
+        from model.serving_risk_fusion import HybridRiskFusionEngine
+        from model.decision_engine_v2 import DecisionPolicyV2, DecisionEngineV2
 
         serving_loader = ServingModelLoader()
         # Track validation: ServingModelLoader does not store model_track in metadata
@@ -124,14 +127,28 @@ async def lifespan(app: FastAPI):
 
         shap_explainer = ServingSHAPExplainer()
 
+        serving_rule_engine = ServingRuleEngine()
+        hybrid_fusion_engine = HybridRiskFusionEngine()
+
+        decision_policy_v2 = DecisionPolicyV2()
+        decision_engine_v2 = DecisionEngineV2(
+            policy=decision_policy_v2,
+            rule_engine=serving_rule_engine,
+            fusion_engine=hybrid_fusion_engine,
+        )
+
         app_state.serving_loader = serving_loader
         app_state.serving_policy_loader = serving_policy
         app_state.serving_shap_explainer = shap_explainer
+        app_state.serving_rule_engine = serving_rule_engine
+        app_state.hybrid_fusion_engine = hybrid_fusion_engine
+        app_state.decision_engine_v2 = decision_engine_v2
         app_state.serving_model_ready = True
 
         logger.info(
             f"Razorpay Serving Model ready: "
-            f"T_review={serving_policy.t_review:.4f}  T_block={serving_policy.t_block:.4f}"
+            f"T_review={serving_policy.t_review:.4f}  T_block={serving_policy.t_block:.4f} | "
+            f"Rule Engine v1 & Hybrid Risk Fusion Loaded"
         )
     except Exception as e:
         logger.error(

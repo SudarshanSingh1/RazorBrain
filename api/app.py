@@ -33,6 +33,8 @@ from api.routes import router
 from api.razorpay_routes import router as razorpay_router
 from api.razorpay_routes import webhook_router
 from api.dashboard_routes import router as dashboard_router
+from api.predict_routes import router as predict_router
+from api.case_routes import router as case_router
 from api.schemas import ErrorResponse, ErrorDetail
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,8 @@ app.include_router(router)
 app.include_router(razorpay_router)
 app.include_router(webhook_router)
 app.include_router(dashboard_router)
+app.include_router(predict_router)
+app.include_router(case_router)
 
 cors_origins_env = os.environ.get("RAZORBRAIN_CORS_ORIGINS", "*")
 allow_origins = [origin.strip() for origin in cors_origins_env.split(",")] if cors_origins_env else ["*"]

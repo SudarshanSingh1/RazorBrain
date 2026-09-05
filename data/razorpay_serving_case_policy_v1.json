@@ -1,0 +1,30 @@
+{
+  "policy_version": "1.0",
+  "auto_create_cases": true,
+  "description": "Investigation case creation policy for RazorBrain transaction lifecycle management.",
+  "decision_case_mapping": {
+    "APPROVE": false,
+    "REVIEW": true,
+    "STEP_UP": true,
+    "DECLINE": false
+  },
+  "priority_mapping": {
+    "REVIEW": "MEDIUM",
+    "STEP_UP": "HIGH",
+    "DECLINE": "CRITICAL"
+  },
+  "high_amount_escalation_threshold": 1000000.0,
+  "sla_hours": {
+    "CRITICAL": 2,
+    "HIGH": 6,
+    "MEDIUM": 24,
+    "LOW": 72
+  },
+  "allowed_resolution_types": [
+    "CONFIRMED_FRAUD",
+    "CONFIRMED_LEGITIMATE",
+    "INCONCLUSIVE",
+    "DUPLICATE",
+    "OTHER"
+  ]
+}

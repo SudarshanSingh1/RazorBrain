@@ -1,121 +1,183 @@
 """
-Tests for Rule Engine.
+Comprehensive test suite for the Serving Rule Engine.
+Tests all rule categories, deterministic prioritization, conflict resolution,
+and defensive edge-case handling.
 """
 
 import pytest
-import pandas as pd
-import numpy as np
-
-from data.generator import generate_transactions
-from model.feature_engineering import compute_historical_features, fit_transform_features, transform_features, get_feature_matrix
-from model.dataset_split import split_chronological
-from model.rule_engine import extract_training_thresholds, evaluate_rules
+from model.serving_rule_engine import ServingRuleEngine, RuleResult, SEVERITY_ORDER
 
 
-@pytest.fixture(scope="module")
-def rule_fixtures():
-    df = generate_transactions(n=1000, seed=42)
-    df_hist = compute_historical_features(df)
-    train, val, test = split_chronological(df_hist)
-    
-    train_feat, state = fit_transform_features(train)
-    X_train = get_feature_matrix(train_feat)
-    
-    thresholds = extract_training_thresholds(X_train)
-    return thresholds, X_train
+@pytest.fixture
+def rule_engine():
+    return ServingRuleEngine()
 
 
-def test_extract_thresholds(rule_fixtures):
-    thresholds, _ = rule_fixtures
-    assert "amount_p99" in thresholds
-    assert "txns_last_24h_p99" in thresholds
-    assert thresholds["merchant_fraud_rate_p95"] >= 0.05  # Guardrail test
+def test_rule_engine_no_rules_triggered(rule_engine):
+    clean_features = {
+        "amount": 1500.0,
+        "is_new_customer": 0,
+        "previous_transaction_count": 10,
+        "avg_customer_amount": 1400.0,
+        "amount_ratio": 1.07,
+        "txns_last_1h": 1,
+        "txns_last_24h": 2,
+        "card_network": "visa",
+    }
+    triggered = rule_engine.evaluate(clean_features)
+    assert len(triggered) == 0
 
 
-def test_normal_transaction_no_rules_triggered(rule_fixtures):
-    thresholds, X_train = rule_fixtures
-    
-    # Construct normal transaction (below thresholds)
-    txn = pd.DataFrame([X_train.iloc[0].to_dict()])
-    for col in txn.columns:
-        txn[col] = 0.0
-        
-    evidence_batch = evaluate_rules(txn, thresholds)
-    assert len(evidence_batch) == 1
-    assert len(evidence_batch[0]) == 0  # No rules triggered
+def test_rule_engine_high_value_transaction(rule_engine):
+    features = {
+        "amount": 600000.0,
+        "is_new_customer": 0,
+        "previous_transaction_count": 5,
+        "card_network": "visa",
+    }
+    triggered = rule_engine.evaluate(features)
+    assert len(triggered) == 1
+    assert triggered[0].rule_id == "HIGH_VALUE_TRANSACTION"
+    assert triggered[0].severity == "REVIEW"
+    assert triggered[0].reason_code == "HIGH_VALUE_TRANSACTION"
+    assert "additional risk review" in triggered[0].description.lower() or "review" in triggered[0].description.lower()
+    assert triggered[0].observed_values["amount"] == 600000.0
 
 
-def test_velocity_new_device(rule_fixtures):
-    thresholds, X_train = rule_fixtures
-    
-    txn = pd.DataFrame([X_train.iloc[0].to_dict()])
-    txn["txns_last_24h"] = thresholds["txns_last_24h_p99"] + 10
-    txn["new_device_flag"] = 1.0
-    
-    evidence_batch = evaluate_rules(txn, thresholds)
-    triggered = [e["rule_id"] for e in evidence_batch[0]]
-    assert "velocity_new_device" in triggered
-    
-    # Check Severity and Status
-    rule_evidence = [e for e in evidence_batch[0] if e["rule_id"] == "velocity_new_device"][0]
-    assert rule_evidence["severity"] == "HIGH"
-    assert rule_evidence["status"] == "TRIGGERED"
-    assert "txns_last_24h" in rule_evidence["observed_values"]
-    assert "txns_last_24h_p99" in rule_evidence["thresholds"]
+def test_rule_engine_extreme_high_value_transaction(rule_engine):
+    features = {
+        "amount": 3000000.0,
+        "is_new_customer": 0,
+        "previous_transaction_count": 5,
+        "card_network": "visa",
+    }
+    triggered = rule_engine.evaluate(features)
+    assert len(triggered) == 1
+    assert triggered[0].rule_id == "EXTREME_HIGH_VALUE_TRANSACTION"
+    assert triggered[0].severity == "STEP_UP"
+    assert triggered[0].priority == 150
 
 
-def test_single_signal_safety(rule_fixtures):
-    """
-    Test that a single weak signal (high amount) triggers only LOW severity.
-    """
-    thresholds, X_train = rule_fixtures
-    
-    txn = pd.DataFrame([X_train.iloc[0].to_dict()])
-    txn["amount"] = thresholds["amount_p99"] + 1000
-    
-    evidence_batch = evaluate_rules(txn, thresholds)
-    triggered = [e["rule_id"] for e in evidence_batch[0]]
-    assert "extreme_amount_single_signal" in triggered
-    
-    rule_evidence = [e for e in evidence_batch[0] if e["rule_id"] == "extreme_amount_single_signal"][0]
-    assert rule_evidence["severity"] == "LOW"  # Safety check
-    assert rule_evidence["status"] == "TRIGGERED"
+def test_rule_engine_cold_start_high_amount(rule_engine):
+    features = {
+        "amount": 75000.0,
+        "is_new_customer": 1,
+        "previous_transaction_count": 0,
+        "card_network": "visa",
+    }
+    triggered = rule_engine.evaluate(features)
+    rule_ids = [r.rule_id for r in triggered]
+    assert "COLD_START_HIGH_AMOUNT" in rule_ids
+    r = next(r for r in triggered if r.rule_id == "COLD_START_HIGH_AMOUNT")
+    assert r.severity == "REVIEW"
 
 
-def test_missing_data_rule(rule_fixtures):
-    thresholds, X_train = rule_fixtures
-    
-    txn = pd.DataFrame([X_train.iloc[0].to_dict()])
-    txn["ip_is_missing"] = 1.0
-    
-    evidence_batch = evaluate_rules(txn, thresholds)
-    triggered = [e["rule_id"] for e in evidence_batch[0]]
-    assert "missing_critical_context" in triggered
-    
-    rule_evidence = [e for e in evidence_batch[0] if e["rule_id"] == "missing_critical_context"][0]
-    assert rule_evidence["severity"] == "INFO"
+def test_rule_engine_high_velocity_1h(rule_engine):
+    features = {
+        "amount": 1000.0,
+        "txns_last_1h": 8,
+        "txns_last_24h": 10,
+        "card_network": "visa",
+    }
+    triggered = rule_engine.evaluate(features)
+    assert any(r.rule_id == "HIGH_VELOCITY_1H" and r.severity == "STEP_UP" for r in triggered)
 
 
-def test_unavailable_handling(rule_fixtures):
-    thresholds, X_train = rule_fixtures
-    
-    txn = pd.DataFrame([X_train.iloc[0].to_dict()])
-    txn["amount"] = np.nan  # Break amount rule
-    
-    evidence_batch = evaluate_rules(txn, thresholds)
-    triggered = [e["rule_id"] for e in evidence_batch[0]]
-    assert "extreme_amount_single_signal" not in triggered
+def test_rule_engine_elevated_velocity_24h(rule_engine):
+    features = {
+        "amount": 1000.0,
+        "txns_last_1h": 1,
+        "txns_last_24h": 25,
+        "card_network": "visa",
+    }
+    triggered = rule_engine.evaluate(features)
+    assert any(r.rule_id == "ELEVATED_VELOCITY_24H" and r.severity == "REVIEW" for r in triggered)
 
 
-def test_determinism(rule_fixtures):
-    thresholds, X_train = rule_fixtures
-    
-    txn = pd.DataFrame([X_train.iloc[0].to_dict()])
-    txn["amount"] = thresholds["amount_p99"] + 1000
-    txn["txns_last_24h"] = thresholds["txns_last_24h_p99"] + 10
-    txn["new_device_flag"] = 1.0
-    
-    ev1 = evaluate_rules(txn, thresholds)
-    ev2 = evaluate_rules(txn, thresholds)
-    
-    assert ev1 == ev2
+def test_rule_engine_significant_amount_deviation(rule_engine):
+    features = {
+        "amount": 50000.0,
+        "is_new_customer": 0,
+        "previous_transaction_count": 5,
+        "avg_customer_amount": 2000.0,
+        "amount_ratio": 25.0,
+        "card_network": "visa",
+    }
+    triggered = rule_engine.evaluate(features)
+    assert any(r.rule_id == "SIGNIFICANT_AMOUNT_DEVIATION" and r.severity == "STEP_UP" for r in triggered)
+
+
+def test_rule_engine_deviation_skipped_for_new_customer(rule_engine):
+    # Cold start customer has no baseline, so deviation rule MUST NOT trigger
+    features = {
+        "amount": 25000.0,
+        "is_new_customer": 1,
+        "previous_transaction_count": 0,
+        "avg_customer_amount": 0.0,
+        "amount_ratio": 1.0,
+        "card_network": "visa",
+    }
+    triggered = rule_engine.evaluate(features)
+    rule_ids = [r.rule_id for r in triggered]
+    assert "SIGNIFICANT_AMOUNT_DEVIATION" not in rule_ids
+
+
+def test_rule_engine_restricted_card_network(rule_engine):
+    features = {
+        "amount": 500.0,
+        "card_network": "TEST",
+    }
+    triggered = rule_engine.evaluate(features)
+    assert len(triggered) == 1
+    assert triggered[0].rule_id == "RESTRICTED_CARD_NETWORK"
+    assert triggered[0].severity == "DECLINE"
+
+
+def test_rule_engine_unknown_card_network_handled_safely(rule_engine):
+    features = {
+        "amount": 500.0,
+        "card_network": "totally_unknown_crypto_network",
+    }
+    triggered = rule_engine.evaluate(features)
+    assert len(triggered) == 0
+
+
+def test_rule_engine_priority_conflict_resolution(rule_engine):
+    # Simultaneous triggers:
+    # 1. COLD_START_HIGH_AMOUNT (severity REVIEW, priority 90)
+    # 2. HIGH_VELOCITY_1H (severity STEP_UP, priority 120)
+    # 3. RESTRICTED_CARD_NETWORK (severity DECLINE, priority 200)
+    features = {
+        "amount": 60000.0,
+        "is_new_customer": 1,
+        "previous_transaction_count": 0,
+        "txns_last_1h": 7,
+        "card_network": "test",
+    }
+    triggered = rule_engine.evaluate(features)
+    assert len(triggered) == 3
+    # First must be highest severity: DECLINE
+    assert triggered[0].severity == "DECLINE"
+    assert triggered[0].rule_id == "RESTRICTED_CARD_NETWORK"
+    # Second must be STEP_UP
+    assert triggered[1].severity == "STEP_UP"
+    assert triggered[1].rule_id == "HIGH_VELOCITY_1H"
+    # Third must be REVIEW
+    assert triggered[2].severity == "REVIEW"
+    assert triggered[2].rule_id == "COLD_START_HIGH_AMOUNT"
+
+
+def test_rule_engine_numeric_edge_cases(rule_engine):
+    # NaN and negative amounts
+    features = {
+        "amount": -100.0,
+        "txns_last_1h": None,
+        "card_network": None,
+    }
+    triggered = rule_engine.evaluate(features)
+    assert len(triggered) == 0
+
+
+def test_rule_engine_missing_policy_file():
+    with pytest.raises(FileNotFoundError):
+        ServingRuleEngine("data/non_existent_policy.json")

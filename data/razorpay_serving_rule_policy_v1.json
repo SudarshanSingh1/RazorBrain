@@ -1,0 +1,70 @@
+{
+  "policy_version": "1.0",
+  "enabled": true,
+  "description": "Deterministic operational risk rules for Razorpay serving transactions based on the 15-feature contract.",
+  "rules": [
+    {
+      "rule_id": "HIGH_VALUE_TRANSACTION",
+      "enabled": true,
+      "severity": "REVIEW",
+      "priority": 100,
+      "reason_code": "HIGH_VALUE_TRANSACTION",
+      "description": "High-value transaction exceeds standard operational review threshold.",
+      "threshold": 500000.0
+    },
+    {
+      "rule_id": "EXTREME_HIGH_VALUE_TRANSACTION",
+      "enabled": true,
+      "severity": "STEP_UP",
+      "priority": 150,
+      "reason_code": "EXTREME_HIGH_VALUE_TRANSACTION",
+      "description": "Extremely high transaction amount requires step-up authentication and additional verification.",
+      "threshold": 2500000.0
+    },
+    {
+      "rule_id": "COLD_START_HIGH_AMOUNT",
+      "enabled": true,
+      "severity": "REVIEW",
+      "priority": 90,
+      "reason_code": "COLD_START_HIGH_AMOUNT",
+      "description": "First-time customer transaction with elevated amount requires operational review.",
+      "threshold": 50000.0
+    },
+    {
+      "rule_id": "HIGH_VELOCITY_1H",
+      "enabled": true,
+      "severity": "STEP_UP",
+      "priority": 120,
+      "reason_code": "HIGH_VELOCITY_1H",
+      "description": "Elevated 1-hour transaction velocity indicates rapid succession and requires step-up authentication.",
+      "threshold": 5
+    },
+    {
+      "rule_id": "ELEVATED_VELOCITY_24H",
+      "enabled": true,
+      "severity": "REVIEW",
+      "priority": 80,
+      "reason_code": "ELEVATED_VELOCITY_24H",
+      "description": "Unusually high 24-hour transaction frequency requires operational review.",
+      "threshold": 20
+    },
+    {
+      "rule_id": "SIGNIFICANT_AMOUNT_DEVIATION",
+      "enabled": true,
+      "severity": "STEP_UP",
+      "priority": 110,
+      "reason_code": "SIGNIFICANT_AMOUNT_DEVIATION",
+      "description": "Transaction amount is over 10x the customer's historical average amount.",
+      "threshold": 10.0
+    },
+    {
+      "rule_id": "RESTRICTED_CARD_NETWORK",
+      "enabled": true,
+      "severity": "DECLINE",
+      "priority": 200,
+      "reason_code": "TEST_CARD_NOT_ALLOWED",
+      "description": "Transaction attempted using an unauthorized or test payment network.",
+      "restricted_networks": ["test", "restricted"]
+    }
+  ]
+}

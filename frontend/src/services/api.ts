@@ -18,6 +18,13 @@ export const createTestOrder = (data: { amount: number; currency: string; receip
 export const assessTestPayment = (payment_id: string) =>
   api.post('/razorpay/test/assess', { payment_id });
 
+// Manual Transaction Scoring
+export const scoreTransaction = (payload: any, options?: { signal?: AbortSignal }) =>
+  api.post('/predict', payload, options);
+
+export const decideTransaction = (payload: any, options?: { signal?: AbortSignal }) =>
+  api.post('/transactions/decide', payload, options);
+
 // Dashboard Overview & Analytics
 export const getSummary = () => api.get('/dashboard/summary');
 export const getRiskDistribution = () => api.get('/dashboard/risk-distribution');
@@ -49,5 +56,27 @@ export const recordFeedback = (
 // Simulations
 export const simulateReviewCapacity = (params: any) => 
   api.post('/dashboard/review-capacity/simulate', params);
+
+// Investigation Case Management
+export const getCases = (params = {}, options?: { signal?: AbortSignal }) =>
+  api.get('/cases', { params, ...options });
+
+export const getCaseDetail = (caseId: string, options?: { signal?: AbortSignal }) =>
+  api.get(`/cases/${caseId}`, options);
+
+export const createCase = (data: any) =>
+  api.post('/cases', data);
+
+export const assignCase = (caseId: string, data: { assigned_to: string; expected_version: number; actor?: string }) =>
+  api.post(`/cases/${caseId}/assign`, data);
+
+export const investigateCase = (caseId: string, data: { expected_version: number; notes?: string; actor?: string }) =>
+  api.post(`/cases/${caseId}/investigate`, data);
+
+export const escalateCase = (caseId: string, data: { escalation_reason: string; expected_version: number; actor?: string }) =>
+  api.post(`/cases/${caseId}/escalate`, data);
+
+export const resolveCase = (caseId: string, data: { resolution_type: string; resolution_notes?: string; expected_version: number; actor?: string }) =>
+  api.post(`/cases/${caseId}/resolve`, data);
 
 export default api;
