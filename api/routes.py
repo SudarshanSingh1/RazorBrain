@@ -24,6 +24,20 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+@router.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    from fastapi import Response
+    return Response(status_code=204)
+
+@router.get("/")
+async def root():
+    return {
+        "status": "online",
+        "service": "razorbrain_api",
+        "message": "RazorBrain API is running. See /docs for documentation.",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
 
 @router.post(
     "/transactions/assess",
