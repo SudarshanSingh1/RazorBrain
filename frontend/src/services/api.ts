@@ -4,11 +4,11 @@ import axios from 'axios';
 // Development: Set VITE_API_URL=http://localhost:8000 in .env
 // Production:  Set VITE_API_URL=https://your-backend.onrender.com in Render env vars
 // The fallback to localhost:8000 is for development convenience only.
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://razorbrain.onrender.com';
 
 if (!import.meta.env.VITE_API_URL) {
   console.warn(
-    '[RazorBrain] VITE_API_URL is not set. Using default: http://localhost:8000\n' +
+    '[RazorBrain] VITE_API_URL is not set. Using default: https://razorbrain.onrender.com\n' +
     'For production, set VITE_API_URL to your backend deployment URL.'
   );
 }
