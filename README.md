@@ -239,7 +239,7 @@ docker compose up --build
 
 ## Author
 
-**Sudarshan Kushwaha**
+**SUDARSHAN SINGH**
 
 AI Buildathon 2026 — Track 02: AI Risk Manager
 
