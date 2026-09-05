@@ -14,7 +14,7 @@ interface ConnectionContextValue {
 
 const ConnectionContext = createContext<ConnectionContextValue | null>(null);
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://razorbrain.onrender.com';
 
 export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<ConnectionState>({

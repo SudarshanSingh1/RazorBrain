@@ -63,7 +63,8 @@ app.include_router(management_router)
 app.include_router(security_router)
 
 cors_origins_env = os.environ.get("RAZORBRAIN_CORS_ORIGINS", "*")
-allow_origins = [origin.strip() for origin in cors_origins_env.split(",")] if cors_origins_env else ["*"]
+allow_origins = [origin.strip().rstrip("/") for origin in cors_origins_env.split(",")] if cors_origins_env else ["*"]
+if "*" in allow_origins: allow_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
